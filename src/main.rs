@@ -1,0 +1,167 @@
+//! Obelisk — a token-optimizing engine for AI coding agents.
+//!
+//! One binary, several reversible layers, one shared ledger:
+//!   run      compress a command's output before it enters context
+//!   squeeze  collapse boilerplate from any text stream
+//!   terse    terse-ify prose (code left intact)
+//!   outline/symbol   structural code retrieval — fetch a symbol, not a file
+//!   marker/checkpoint/restore   save & reload context compactly
+//!   serve    a local optimization proxy for the model API
+//!   stats    one savings dashboard across every layer
+//!
+//! Everything compressible is stashed first, so any output is recoverable
+//! with `obelisk restore <handle>` — minimize tokens, lose no context.
+
+mod dashboard;
+mod engine;
+mod filters;
+mod hook;
+mod install;
+mod ledger;
+mod marker;
+mod proxy;
+mod squeeze;
+mod symbols;
+mod terse;
+
+use clap::{Parser, Subcommand};
+
+#[derive(Parser)]
+#[command(
+    name = "obelisk",
+    version,
+    about = "Token-optimizing engine for AI coding agents — minimize tokens, lose no context"
+)]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Run a command and emit a compressed, reversible view of its output.
+    #[command(trailing_var_arg = true)]
+    Run {
+        #[arg(allow_hyphen_values = true)]
+        cmd: Vec<String>,
+    },
+    /// Reversibly squeeze boilerplate (ANSI/dup-lines/blobs) from stdin.
+    Squeeze,
+    /// Terse-ify prose from stdin (off|lite|full|ultra). Code blocks untouched.
+    Terse {
+        #[arg(default_value = "lite")]
+        level: String,
+    },
+    /// List a source file's symbols with line ranges — structure without content.
+    Outline { file: String },
+    /// Extract just one symbol's source (fetch the function, not the whole file).
+    Symbol { file: String, name: String },
+    /// Context markers: compact named summaries to resume work without reloading.
+    #[command(trailing_var_arg = true)]
+    Marker {
+        #[arg(allow_hyphen_values = true)]
+        args: Vec<String>,
+    },
+    /// Snapshot session state from stdin; survives compaction. Prints a handle.
+    Checkpoint {
+        #[arg(default_value = "session")]
+        label: String,
+    },
+    /// Restore a stashed original or checkpoint by handle.
+    Restore { handle: String },
+    /// Run the local optimization proxy: plain HTTP in, HTTPS out, token-accounted.
+    Serve {
+        #[arg(long, default_value_t = 6767)]
+        port: u16,
+        #[arg(long, default_value = "https://api.anthropic.com")]
+        upstream: String,
+    },
+    /// Unified savings dashboard across every layer.
+    Stats,
+    /// Evict reversible blobs older than N days (checkpoints/markers kept).
+    Gc {
+        #[arg(default_value_t = 14)]
+        days: i64,
+    },
+    /// Wire Obelisk into an AI coding agent (claude|hermes|opencode|openclaw).
+    Install { agent: String },
+    /// Hook processor invoked by an agent on tool use (reads JSON from stdin).
+    Hook { agent: String },
+    /// Verify the install is wired correctly.
+    Doctor,
+}
+
+fn main() {
+    let cli = Cli::parse();
+    let code = match run(cli) {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("obelisk: {e:#}");
+            1
+        }
+    };
+    std::process::exit(code);
+}
+
+fn read_stdin() -> String {
+    use std::io::Read;
+    let mut s = String::new();
+    let _ = std::io::stdin().read_to_string(&mut s);
+    s
+}
+
+fn run(cli: Cli) -> anyhow::Result<i32> {
+    match cli.command {
+        Commands::Run { cmd } => engine::run(&cmd),
+        Commands::Squeeze => {
+            let input = read_stdin();
+            let r = squeeze::squeeze(&input, true)?;
+            print!("{}", r.text);
+            let pct = if r.before > 0 {
+                (r.before - r.after) as f64 / r.before as f64 * 100.0
+            } else {
+                0.0
+            };
+            eprintln!("\n[obelisk] {} -> {} tok ({pct:.1}% saved)", r.before, r.after);
+            Ok(0)
+        }
+        Commands::Terse { level } => {
+            print!("{}", terse::terse(&read_stdin(), &level));
+            Ok(0)
+        }
+        Commands::Outline { file } => symbols::outline(&file),
+        Commands::Symbol { file, name } => symbols::symbol(&file, &name),
+        Commands::Marker { args } => marker::run(&args),
+        Commands::Checkpoint { label } => {
+            let h = ledger::checkpoint(&read_stdin(), &label)?;
+            println!("{h}");
+            Ok(0)
+        }
+        Commands::Restore { handle } => match ledger::restore(&handle)? {
+            Some(o) => {
+                print!("{o}");
+                Ok(0)
+            }
+            None => {
+                eprintln!("obelisk: no blob/checkpoint for handle {handle}");
+                Ok(1)
+            }
+        },
+        Commands::Serve { port, upstream } => proxy::serve(port, &upstream),
+        Commands::Stats => dashboard::run(),
+        Commands::Gc { days } => {
+            let n = ledger::gc(days)?;
+            println!("evicted {n} blobs");
+            Ok(0)
+        }
+        Commands::Install { agent } => install::run(&agent),
+        Commands::Hook { agent } => match agent.as_str() {
+            "claude" => hook::claude(),
+            other => {
+                eprintln!("obelisk: no hook processor for '{other}'");
+                Ok(1)
+            }
+        },
+        Commands::Doctor => install::doctor(),
+    }
+}

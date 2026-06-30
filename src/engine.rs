@@ -29,18 +29,27 @@ pub fn run(cmd: &[String]) -> Result<i32> {
 
     let before = est_tokens(&raw);
     let compressed = filters::apply(prog, args, &raw);
-    let mut after = est_tokens(&compressed);
+    let after_compressed = est_tokens(&compressed);
 
-    let mut body = compressed;
-    if body != raw && !raw.is_empty() {
+    // Only stash + append a restore pointer when it actually pays off: the
+    // compression must save a meaningful amount, and the pointer (~20 tokens)
+    // must not cost more than it saves. Otherwise emit the compressed output
+    // clean, so we never make small output bigger.
+    let saved = before.saturating_sub(after_compressed);
+    let worth_restoring = compressed != raw && before > 60 && saved > 25;
+
+    let (body, after) = if worth_restoring {
         let handle = ledger::stash(&raw, "run", &cmd.join(" "))?;
-        body.push_str(&format!(
-            "\n[obelisk:restore {handle} — raw output via `obelisk restore {handle}`]"
-        ));
-        after = est_tokens(&body);
-    }
+        let b = format!(
+            "{compressed}\n[obelisk:restore {handle} — raw via `obelisk restore {handle}`]"
+        );
+        let a = est_tokens(&b);
+        (b, a)
+    } else {
+        (compressed, after_compressed)
+    };
 
-    ledger::record_event("run", &cmd.join(" "), before, after)?;
+    ledger::record_event("run", &cmd.join(" "), before, after.min(before))?;
 
     print!("{body}");
     if !body.ends_with('\n') {

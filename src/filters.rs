@@ -35,23 +35,49 @@ fn strip(s: &str) -> String {
 pub fn apply(prog: &str, args: &[String], raw: &str) -> String {
     let base = prog.rsplit(['/', '\\']).next().unwrap_or(prog);
     let clean = strip(raw);
+    let sub = args.iter().find(|a| !a.starts_with('-')).map(|s| s.as_str());
+
+    // subcommand-aware routing for multiplexed CLIs (logs are the biggest win)
+    match (base, sub) {
+        ("docker" | "podman" | "kubectl" | "oc", Some("logs")) => return logs(&clean),
+        ("kubectl" | "oc", Some("describe")) => return generic(&clean),
+        _ => {}
+    }
+
     match base {
         "git" => git(args, &clean),
-        "grep" | "rg" | "ag" | "ack" => search(&clean),
+        "grep" | "rg" | "ag" | "ack" | "ripgrep" => search(&clean),
         "cargo" => cargo(args, &clean),
         "go" => go(args, &clean),
-        "npm" | "pnpm" | "yarn" | "bun" => node_pm(args, &clean),
-        "make" | "gradle" | "gradlew" | "mvn" | "ninja" | "cmake" | "bazel" => build(&clean),
-        "tsc" | "eslint" | "biome" | "prettier" | "ruff" | "mypy" | "flake8"
-        | "clippy" | "golangci-lint" | "shellcheck" => linter(&clean),
-        "pytest" | "jest" | "vitest" | "mocha" | "rspec" | "phpunit" => test(&clean),
-        "ls" | "find" | "fd" | "tree" => listing(&clean),
-        "docker" | "podman" | "kubectl" | "oc" | "helm" => table(&clean),
-        "ps" | "df" | "du" | "free" | "top" => table(&clean),
-        "pip" | "pip3" | "poetry" | "gem" | "bundle" | "composer" | "apt" | "brew" => pkg(&clean),
-        "cat" | "head" | "tail" | "bat" => passthrough_cap(&clean, 400),
-        "curl" | "wget" | "http" => passthrough_cap(&clean, 200),
-        "jq" | "json" => generic(&clean),
+        "npm" | "pnpm" | "yarn" | "bun" | "deno" => node_pm(args, &clean),
+        "make" | "gradle" | "gradlew" | "mvn" | "ninja" | "cmake" | "bazel" | "meson"
+        | "scons" | "msbuild" | "xcodebuild" => build(&clean),
+        "gcc" | "g++" | "clang" | "clang++" | "cc" | "c++" | "rustc" | "javac"
+        | "swiftc" | "tsc" => compiler(&clean),
+        "eslint" | "biome" | "prettier" | "ruff" | "mypy" | "flake8" | "pylint"
+        | "clippy" | "golangci-lint" | "shellcheck" | "stylelint" | "rubocop"
+        | "black" | "isort" | "hadolint" => linter(&clean),
+        "pytest" | "jest" | "vitest" | "mocha" | "rspec" | "phpunit" | "tox"
+        | "nose" | "ava" | "karma" | "playwright" | "cypress" => test(&clean),
+        "dotnet" => dotnet(args, &clean),
+        "ls" | "find" | "fd" | "tree" | "exa" | "eza" | "lsd" => listing(&clean),
+        "docker" | "podman" | "kubectl" | "oc" | "helm" | "nerdctl" | "crictl" => table(&clean),
+        "terraform" | "tofu" | "pulumi" | "ansible" | "ansible-playbook"
+        | "terragrunt" | "cdk" => infra(&clean),
+        "systemctl" | "service" => systemd(&clean),
+        "journalctl" | "dmesg" | "logread" => logs(&clean),
+        "ps" | "df" | "du" | "free" | "top" | "htop" | "vmstat" | "iostat"
+        | "lsblk" | "lscpu" | "mount" => table(&clean),
+        "netstat" | "ss" | "lsof" | "ip" | "ifconfig" | "route" | "arp" => table(&clean),
+        "ping" | "traceroute" | "tracepath" | "mtr" | "dig" | "nslookup" | "host" => netdiag(&clean),
+        "pip" | "pip3" | "poetry" | "gem" | "bundle" | "composer" | "apt" | "apt-get"
+        | "brew" | "dnf" | "yum" | "pacman" | "snap" | "dpkg" | "rpm" | "conda"
+        | "nix" | "cabal" | "opam" => pkg(&clean),
+        "cat" | "head" | "tail" | "bat" | "less" | "more" => passthrough_cap(&clean, 400),
+        "curl" | "wget" | "http" | "httpie" => passthrough_cap(&clean, 200),
+        "diff" | "delta" | "colordiff" => diffcmd(&clean),
+        "jq" | "yq" | "json" => generic(&clean),
+        "env" | "printenv" | "set" | "export" => env(&clean),
         _ => generic(&clean),
     }
 }
@@ -289,14 +315,18 @@ fn listing(clean: &str) -> String {
     }
 }
 
-// --- tabular output: keep header + rows, drop blank/decoration -------------
+// --- tabular output: keep header + rows, collapse column padding -----------
 fn table(clean: &str) -> String {
+    lazy_static! {
+        static ref PAD: Regex = Regex::new(r" {2,}|\t+").unwrap();
+    }
     clean
         .lines()
         .filter(|l| {
             let t = l.trim();
-            !t.is_empty() && !t.chars().all(|c| "+-=|_".contains(c))
+            !t.is_empty() && !t.chars().all(|c| "+-=|_ ".contains(c))
         })
+        .map(|l| PAD.replace_all(l.trim_end(), " ").into_owned())
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -345,6 +375,163 @@ fn tail_summary(clean: &str, n: usize) -> String {
     let lines: Vec<&str> = clean.lines().filter(|l| !l.trim().is_empty()).collect();
     let len = lines.len();
     lines.into_iter().skip(len.saturating_sub(n)).collect::<Vec<_>>().join("\n")
+}
+
+// --- compilers: errors + locations, drop everything else ------------------
+fn compiler(clean: &str) -> String {
+    let keep = keep_diag(clean);
+    if keep.is_empty() {
+        "compiled — no diagnostics".into()
+    } else {
+        keep.join("\n")
+    }
+}
+
+fn dotnet(args: &[String], clean: &str) -> String {
+    let joined = args.join(" ");
+    if joined.contains("test") {
+        test(clean)
+    } else {
+        build(clean)
+    }
+}
+
+// --- logs: collapse repetitive lines (timestamps/ids vary) with counts. ----
+// The single biggest win on container/journal logs, which are mostly the same
+// message repeated thousands of times.
+fn logs(clean: &str) -> String {
+    lazy_static! {
+        static ref NUM: Regex = Regex::new(r"\d").unwrap();
+        // strip a leading ISO/syslog timestamp so otherwise-identical lines group
+        static ref TS: Regex = Regex::new(
+            r"^\s*(\[?\d{4}-\d{2}-\d{2}[T ][\d:.,]+Z?\]?|\w{3}\s+\d+\s[\d:]+|\[\d[\d:.]*\])\s*"
+        ).unwrap();
+    }
+    let norm = |l: &str| -> String {
+        let l = TS.replace(l, "");
+        NUM.replace_all(&l, "#").into_owned()
+    };
+    let lines: Vec<&str> = clean.lines().filter(|l| !l.trim().is_empty()).collect();
+    let mut out: Vec<String> = Vec::new();
+    let mut i = 0;
+    while i < lines.len() {
+        let key = norm(lines[i]);
+        let mut j = i + 1;
+        while j < lines.len() && norm(lines[j]) == key {
+            j += 1;
+        }
+        let count = j - i;
+        if count > 1 {
+            out.push(format!("{}  [obelisk: ×{count}]", lines[i]));
+        } else {
+            out.push(lines[i].to_string());
+        }
+        i = j;
+    }
+    // also surface any error lines that were buried in non-consecutive runs
+    if out.len() > 400 {
+        let errs: Vec<String> = out.iter().filter(|l| ERR.is_match(l)).cloned().collect();
+        let head: Vec<String> = out.into_iter().take(300).collect();
+        let mut res = head;
+        if !errs.is_empty() {
+            res.push(format!("… [obelisk: {} error lines below]", errs.len()));
+            res.extend(errs.into_iter().take(100));
+        }
+        return res.join("\n");
+    }
+    out.join("\n")
+}
+
+// --- infra plans: keep resource changes + summary, drop unchanged refresh. --
+fn infra(clean: &str) -> String {
+    lazy_static! {
+        static ref CHANGE: Regex = Regex::new(
+            r"^\s*([+\-~!]|<=|->|#|Plan:|Apply complete|Destroy complete|Error:|Changes to|will be (created|destroyed|updated|replaced)|must be replaced|forces replacement|No changes)"
+        ).unwrap();
+    }
+    let keep: Vec<&str> = clean
+        .lines()
+        .filter(|l| CHANGE.is_match(l) && !l.trim().is_empty())
+        .collect();
+    if keep.is_empty() {
+        tail_summary(clean, 3)
+    } else {
+        keep.join("\n")
+    }
+}
+
+// --- systemd: status essentials only ---------------------------------------
+fn systemd(clean: &str) -> String {
+    let keep: Vec<&str> = clean
+        .lines()
+        .filter(|l| {
+            let t = l.trim_start();
+            t.starts_with("Loaded:")
+                || t.starts_with("Active:")
+                || t.starts_with("Main PID:")
+                || t.starts_with("Tasks:")
+                || t.starts_with("Memory:")
+                || t.starts_with("●")
+                || ERR.is_match(l)
+        })
+        .collect();
+    if keep.is_empty() {
+        table(clean)
+    } else {
+        keep.join("\n")
+    }
+}
+
+// --- network diagnostics: summary lines only -------------------------------
+fn netdiag(clean: &str) -> String {
+    lazy_static! {
+        static ref KEEP: Regex = Regex::new(
+            r"(?i)(packets transmitted|packet loss|round-trip|rtt min|min/avg/max|ANSWER SECTION|^Address:|^Name:|^;;|connect:|unreachable|timed out|statistics ---|hops max)"
+        ).unwrap();
+        // per-packet / per-hop chatter to drop on ping & friends
+        static ref DROP: Regex =
+            Regex::new(r"(?i)(icmp_seq|bytes from|Request timeout for icmp_seq|^\s*\d+\s+[\d.]+ ms)").unwrap();
+    }
+    let keep: Vec<&str> = clean
+        .lines()
+        .filter(|l| !l.trim().is_empty() && KEEP.is_match(l) && !DROP.is_match(l))
+        .collect();
+    if keep.is_empty() {
+        tail_summary(clean, 4)
+    } else {
+        keep.join("\n")
+    }
+}
+
+// --- plain `diff`: changed lines + hunk headers ----------------------------
+fn diffcmd(clean: &str) -> String {
+    clean
+        .lines()
+        .filter(|l| {
+            l.starts_with("@@")
+                || l.starts_with("+++")
+                || l.starts_with("---")
+                || l.starts_with("> ")
+                || l.starts_with("< ")
+                || (l.starts_with('+') && !l.starts_with("+++"))
+                || (l.starts_with('-') && !l.starts_with("---"))
+                || (!l.is_empty() && l.as_bytes()[0].is_ascii_digit()) // `Nc M` etc
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+// --- env: one per line, values truncated -----------------------------------
+fn env(clean: &str) -> String {
+    clean
+        .lines()
+        .filter(|l| !l.trim().is_empty() && l.contains('='))
+        .map(|l| match l.split_once('=') {
+            Some((k, v)) if v.len() > 60 => format!("{k}={}…", &v[..60]),
+            _ => l.to_string(),
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn generic(clean: &str) -> String {

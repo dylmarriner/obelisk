@@ -88,6 +88,15 @@ enum Commands {
     Install { agent: String },
     /// Hook processor invoked by an agent on tool use (reads JSON from stdin).
     Hook { agent: String },
+    /// Rewrite a raw command to its obelisk-wrapped form, if eligible. Prints
+    /// the rewritten command and exits 0, or prints nothing and exits 1 if
+    /// the command should be left alone. Single source of truth for plugins
+    /// that don't speak Claude/Codex's PreToolUse JSON (e.g. Hermes).
+    #[command(trailing_var_arg = true)]
+    Rewrite {
+        #[arg(allow_hyphen_values = true)]
+        cmd: Vec<String>,
+    },
     /// Verify the install is wired correctly.
     Doctor,
     /// Usage-triggered self-improvement: log gaps, enable/disable the loop.
@@ -179,6 +188,13 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
             Ok(0)
         }
         Commands::Install { agent } => install::run(&agent),
+        Commands::Rewrite { cmd } => match hook::rewrite(&cmd.join(" ")) {
+            Some(rewritten) => {
+                println!("{rewritten}");
+                Ok(0)
+            }
+            None => Ok(1),
+        },
         Commands::Hook { agent } => match agent.as_str() {
             "claude" => hook::claude(),
             "codex" => hook::codex(),

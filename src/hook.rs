@@ -1,7 +1,11 @@
-//! Agent hook processors. A coding agent calls `obelisk hook <agent>` on each
-//! tool use, passing the tool payload as JSON on stdin; we rewrite eligible
-//! shell commands to route their output through `obelisk run`, which compresses
-//! it before it lands in the model's context.
+//! Agent hook processors and the rewrite rule they all share.
+//!
+//! Every integration — Claude Code's `PreToolUse` hook, Codex's `PreToolUse`
+//! hook, Hermes's `pre_tool_call` plugin, anything added later — ultimately
+//! asks the same yes/no question: "does this command benefit from being
+//! routed through `obelisk run`?" `rewrite()` is the single place that
+//! answers it. Hook processors are thin adapters from an agent's payload
+//! shape to that one function; they must not duplicate the eligibility logic.
 
 use anyhow::Result;
 use std::io::Read;
@@ -31,6 +35,26 @@ fn is_mutating_git(c: &str) -> bool {
         .any(|m| c.contains(&format!("git {m}")) || c.contains(&format!(" {m} ")))
 }
 
+/// The one rewrite rule. `None` means "leave the command alone" — not
+/// eligible, already wrapped, or otherwise out of scope.
+pub fn rewrite(cmd: &str) -> Option<String> {
+    if eligible(cmd) {
+        Some(format!("obelisk run {cmd}"))
+    } else {
+        None
+    }
+}
+
+fn claude_codex_response(rewritten: &str) -> serde_json::Value {
+    serde_json::json!({
+        "hookSpecificOutput": {
+            "hookEventName": "PreToolUse",
+            "permissionDecisionReason": "Obelisk output compression",
+            "updatedInput": { "command": rewritten }
+        }
+    })
+}
+
 pub fn claude() -> Result<i32> {
     let mut buf = String::new();
     std::io::stdin().read_to_string(&mut buf)?;
@@ -42,16 +66,10 @@ pub fn claude() -> Result<i32> {
         .and_then(|c| c.as_str())
         .unwrap_or("");
 
-    if tool == "Bash" && eligible(cmd) {
-        let rewritten = format!("obelisk run {cmd}");
-        let out = serde_json::json!({
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecisionReason": "Obelisk output compression",
-                "updatedInput": { "command": rewritten }
-            }
-        });
-        println!("{out}");
+    if tool == "Bash" {
+        if let Some(rewritten) = rewrite(cmd) {
+            println!("{}", claude_codex_response(&rewritten));
+        }
     }
     Ok(0)
 }
@@ -79,16 +97,8 @@ pub fn codex() -> Result<i32> {
         String::new()
     };
 
-    if eligible(&cmd) {
-        let rewritten = format!("obelisk run {cmd}");
-        let out = serde_json::json!({
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecisionReason": "Obelisk output compression",
-                "updatedInput": { "command": rewritten }
-            }
-        });
-        println!("{out}");
+    if let Some(rewritten) = rewrite(&cmd) {
+        println!("{}", claude_codex_response(&rewritten));
     }
     Ok(0)
 }

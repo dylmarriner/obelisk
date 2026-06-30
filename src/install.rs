@@ -85,11 +85,20 @@ fn claude() -> Result<i32> {
 }
 
 fn hermes() -> Result<i32> {
-    // Hermes reads a rules/awareness file; drop one that tells it to route
-    // output-heavy commands through `obelisk run`.
+    // Awareness file as a fallback/explainer, plus a real `pre_tool_call`
+    // plugin (mirrors rtk's rtk-rewrite plugin) that calls `obelisk rewrite`
+    // and swaps the command in before execution — no agent cooperation needed.
     let rules = home().join(".hermes").join("OBELISK.md");
     backup_and_write(&rules, &awareness())?;
+
+    let plugin_dir = home().join(".hermes").join("plugins").join("obelisk-rewrite");
+    std::fs::create_dir_all(&plugin_dir)?;
+    backup_and_write(&plugin_dir.join("plugin.yaml"), HERMES_PLUGIN_YAML)?;
+    backup_and_write(&plugin_dir.join("__init__.py"), HERMES_PLUGIN_INIT)?;
+
     println!("✓ Hermes: awareness rule installed -> {}", rules.display());
+    println!("✓ Hermes: pre_tool_call plugin installed -> {}", plugin_dir.display());
+    println!("  restart Hermes to load the plugin.");
     Ok(0)
 }
 
@@ -180,6 +189,11 @@ fn openclaw() -> Result<i32> {
 fn awareness() -> String {
     "# Obelisk\n\nRoute output-heavy, read-only shell commands through `obelisk run` so their\noutput is compressed before entering context. Examples:\n\n- `obelisk run git status`\n- `obelisk run cargo build`\n- `obelisk run grep -rn TODO src`\n\nFetch a single function instead of a whole file with `obelisk symbol <file> <name>`.\nCompressed output ends with a `[obelisk:restore <handle>]` pointer — run\n`obelisk restore <handle>` if you need the full original.\n".into()
 }
+
+const HERMES_PLUGIN_YAML: &str =
+    include_str!("../integrations/hermes/obelisk-rewrite/plugin.yaml");
+const HERMES_PLUGIN_INIT: &str =
+    include_str!("../integrations/hermes/obelisk-rewrite/__init__.py");
 
 const OPENCODE_PLUGIN: &str = r#"// Obelisk plugin for OpenCode — routes shell output through `obelisk run`.
 export const obelisk = async ({ $ }) => ({

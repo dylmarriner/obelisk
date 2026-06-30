@@ -32,6 +32,41 @@ fn strip(s: &str) -> String {
     ANSI.replace_all(s, "").into_owned()
 }
 
+/// True if `prog` has a dedicated filter; false if it falls back to the
+/// generic squeeze. Used by the learning loop to spot coverage gaps.
+pub fn is_covered(prog: &str) -> bool {
+    let base = prog.rsplit(['/', '\\']).next().unwrap_or(prog);
+    matches!(
+        base,
+        "git" | "grep" | "rg" | "ag" | "ack" | "ripgrep" | "cargo" | "go" | "npm" | "pnpm"
+            | "yarn" | "bun" | "deno" | "make" | "gradle" | "gradlew" | "mvn" | "ninja"
+            | "cmake" | "bazel" | "meson" | "scons" | "msbuild" | "xcodebuild" | "gcc" | "g++"
+            | "clang" | "clang++" | "cc" | "c++" | "rustc" | "javac" | "swiftc" | "tsc"
+            | "eslint" | "biome" | "prettier" | "ruff" | "mypy" | "flake8" | "pylint" | "clippy"
+            | "golangci-lint" | "shellcheck" | "stylelint" | "rubocop" | "black" | "isort"
+            | "hadolint" | "pytest" | "jest" | "vitest" | "mocha" | "rspec" | "phpunit" | "tox"
+            | "nose" | "ava" | "karma" | "playwright" | "cypress" | "dotnet" | "ls" | "find"
+            | "fd" | "tree" | "exa" | "eza" | "lsd" | "docker" | "podman" | "kubectl" | "oc"
+            | "helm" | "nerdctl" | "crictl" | "terraform" | "tofu" | "pulumi" | "ansible"
+            | "ansible-playbook" | "terragrunt" | "cdk" | "systemctl" | "service"
+            | "journalctl" | "dmesg" | "logread" | "ps" | "df" | "du" | "free" | "top" | "htop"
+            | "vmstat" | "iostat" | "lsblk" | "lscpu" | "mount" | "netstat" | "ss" | "lsof"
+            | "ip" | "ifconfig" | "route" | "arp" | "ping" | "traceroute" | "tracepath" | "mtr"
+            | "dig" | "nslookup" | "host" | "strace" | "ltrace" | "dtruss" | "dtrace" | "rsync"
+            | "scp" | "sftp" | "rclone" | "tar" | "unzip" | "zip" | "7z" | "7za" | "gzip"
+            | "gunzip" | "unrar" | "nmap" | "masscan" | "valgrind" | "man" | "info" | "tldr"
+            | "ffmpeg" | "ffprobe" | "yt-dlp" | "youtube-dl" | "wget2" | "pip" | "pip3"
+            | "poetry" | "gem" | "bundle" | "composer" | "apt" | "apt-get" | "brew" | "dnf"
+            | "yum" | "pacman" | "snap" | "dpkg" | "rpm" | "conda" | "nix" | "cabal" | "opam"
+            | "aws" | "gcloud" | "az" | "doctl" | "eksctl" | "ibmcloud" | "oci" | "linode-cli"
+            | "flyctl" | "fly" | "heroku" | "vercel" | "wrangler" | "psql" | "mysql" | "mariadb"
+            | "sqlite3" | "sqlite" | "mongosh" | "mongo" | "redis-cli" | "cqlsh"
+            | "clickhouse-client" | "duckdb" | "cockroach" | "cat" | "head" | "tail" | "bat"
+            | "less" | "more" | "curl" | "wget" | "http" | "httpie" | "diff" | "delta"
+            | "colordiff" | "jq" | "yq" | "json" | "fx" | "env" | "printenv" | "set" | "export"
+    )
+}
+
 pub fn apply(prog: &str, args: &[String], raw: &str) -> String {
     let base = prog.rsplit(['/', '\\']).next().unwrap_or(prog);
     let clean = strip(raw);

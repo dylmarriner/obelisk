@@ -17,6 +17,7 @@ mod engine;
 mod filters;
 mod hook;
 mod install;
+mod learn;
 mod ledger;
 mod marker;
 mod proxy;
@@ -89,6 +90,27 @@ enum Commands {
     Hook { agent: String },
     /// Verify the install is wired correctly.
     Doctor,
+    /// Usage-triggered self-improvement: log gaps, enable/disable the loop.
+    Learn {
+        #[command(subcommand)]
+        action: LearnAction,
+    },
+}
+
+#[derive(Subcommand)]
+enum LearnAction {
+    /// Enable the self-improve loop for a repo (must contain scripts/self-improve.sh).
+    Enable {
+        repo_path: String,
+        #[arg(long)]
+        threshold: Option<i64>,
+    },
+    /// Disable the self-improve loop.
+    Disable,
+    /// Show whether learning is enabled and how many gaps are pending.
+    Status,
+    /// Dump pending gaps as JSON (consumed by scripts/self-improve.sh).
+    Gaps,
 }
 
 fn main() {
@@ -144,6 +166,8 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
             }
             None => {
                 eprintln!("obelisk: no blob/checkpoint for handle {handle}");
+                let _ = ledger::record_gap("restore_miss", &handle, "");
+                learn::maybe_trigger();
                 Ok(1)
             }
         },
@@ -163,5 +187,11 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
             }
         },
         Commands::Doctor => install::doctor(),
+        Commands::Learn { action } => match action {
+            LearnAction::Enable { repo_path, threshold } => learn::enable(&repo_path, threshold),
+            LearnAction::Disable => learn::disable(),
+            LearnAction::Status => learn::status(),
+            LearnAction::Gaps => learn::gaps_json(),
+        },
     }
 }

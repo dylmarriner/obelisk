@@ -31,6 +31,11 @@ pub fn run(cmd: &[String]) -> Result<i32> {
     let compressed = filters::apply(prog, args, &raw);
     let after_compressed = est_tokens(&compressed);
 
+    if !filters::is_covered(prog) {
+        let _ = ledger::record_gap("no_filter", prog, &raw);
+        crate::learn::maybe_trigger();
+    }
+
     // Only stash + append a restore pointer when it actually pays off: the
     // compression must save a meaningful amount, and the pointer (~20 tokens)
     // must not cost more than it saves. Otherwise emit the compressed output

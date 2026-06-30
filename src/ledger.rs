@@ -37,9 +37,52 @@ fn open() -> Result<Connection> {
          CREATE TABLE IF NOT EXISTS events (
             id INTEGER PRIMARY KEY AUTOINCREMENT, layer TEXT NOT NULL, command TEXT,
             tokens_before INTEGER NOT NULL, tokens_after INTEGER NOT NULL,
-            created_at INTEGER NOT NULL);",
+            created_at INTEGER NOT NULL);
+         CREATE TABLE IF NOT EXISTS gaps (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL, prog TEXT NOT NULL,
+            sample TEXT, created_at INTEGER NOT NULL, triggered INTEGER NOT NULL DEFAULT 0);",
     )?;
     Ok(conn)
+}
+
+// --- learning gaps -----------------------------------------------------
+// A "gap" is anything that suggests obelisk's coverage or correctness is
+// lacking: a command with no dedicated filter, a panic caught at the
+// boundary, or a restore that came back empty. The self-improve loop reads
+// these to decide what to fix.
+
+pub fn record_gap(kind: &str, prog: &str, sample: &str) -> Result<()> {
+    let sample: String = sample.chars().take(2000).collect();
+    open()?.execute(
+        "INSERT INTO gaps (kind, prog, sample, created_at) VALUES (?1,?2,?3,?4)",
+        rusqlite::params![kind, prog, sample, now()],
+    )?;
+    Ok(())
+}
+
+/// Count of gaps logged since the last time the self-improve loop fired.
+pub fn pending_gap_count() -> Result<i64> {
+    open()?.query_row("SELECT COUNT(*) FROM gaps WHERE triggered = 0", [], |r| r.get(0))
+        .context("count pending gaps")
+}
+
+/// Gaps logged since the last trigger, grouped by (kind, prog), most frequent first.
+pub fn pending_gap_summary() -> Result<Vec<(String, String, i64)>> {
+    let conn = open()?;
+    let mut stmt = conn.prepare(
+        "SELECT kind, prog, COUNT(*) FROM gaps WHERE triggered = 0
+         GROUP BY kind, prog ORDER BY 3 DESC LIMIT 20",
+    )?;
+    let rows: Vec<(String, String, i64)> = stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+    Ok(rows)
+}
+
+/// Mark all pending gaps as having been handed to the self-improve loop.
+pub fn mark_gaps_triggered() -> Result<()> {
+    open()?.execute("UPDATE gaps SET triggered = 1 WHERE triggered = 0", [])?;
+    Ok(())
 }
 
 fn now() -> i64 {

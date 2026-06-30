@@ -73,10 +73,14 @@ pub fn apply(prog: &str, args: &[String], raw: &str) -> String {
         "pip" | "pip3" | "poetry" | "gem" | "bundle" | "composer" | "apt" | "apt-get"
         | "brew" | "dnf" | "yum" | "pacman" | "snap" | "dpkg" | "rpm" | "conda"
         | "nix" | "cabal" | "opam" => pkg(&clean),
+        "aws" | "gcloud" | "az" | "doctl" | "eksctl" | "ibmcloud" | "oci"
+        | "linode-cli" | "flyctl" | "fly" | "heroku" | "vercel" | "wrangler" => cloud(&clean),
+        "psql" | "mysql" | "mariadb" | "sqlite3" | "sqlite" | "mongosh" | "mongo"
+        | "redis-cli" | "cqlsh" | "clickhouse-client" | "duckdb" | "cockroach" => dbclient(&clean),
         "cat" | "head" | "tail" | "bat" | "less" | "more" => passthrough_cap(&clean, 400),
-        "curl" | "wget" | "http" | "httpie" => passthrough_cap(&clean, 200),
+        "curl" | "wget" | "http" | "httpie" => http(&clean),
         "diff" | "delta" | "colordiff" => diffcmd(&clean),
-        "jq" | "yq" | "json" => generic(&clean),
+        "jq" | "yq" | "json" | "fx" => json_compact(&clean),
         "env" | "printenv" | "set" | "export" => env(&clean),
         _ => generic(&clean),
     }
@@ -271,18 +275,27 @@ fn linter(clean: &str) -> String {
 
 // --- tests: failures + summary only ----------------------------------------
 fn test(clean: &str) -> String {
+    lazy_static! {
+        // pytest/jest/etc. session headers and progress chrome — pure noise
+        static ref HDR: Regex = Regex::new(
+            r"(?i)^(platform |rootdir|plugins:|cachedir|collecting|configfile|test session starts|=+ test|PASS |RUNS |Test Suites:|Tests:|Snapshots:|Time:|Ran all)"
+        ).unwrap();
+        static ref DOTS: Regex = Regex::new(r"^[\s.sxFE✓✗×·]+$").unwrap();
+    }
     let mut keep: Vec<&str> = clean
         .lines()
         .filter(|l| {
             let t = l.trim();
-            !t.is_empty() && !NOISE.is_match(l)
-                && (RESULT.is_match(l)
-                    || ERR.is_match(l)
-                    || t.starts_with("FAIL")
-                    || t.starts_with("✗")
-                    || t.starts_with("×")
-                    || t.contains("assert")
-                    || LOC.is_match(l))
+            if t.is_empty() || NOISE.is_match(l) || HDR.is_match(t) || DOTS.is_match(l) {
+                return false;
+            }
+            RESULT.is_match(l)
+                || ERR.is_match(l)
+                || t.starts_with("FAIL")
+                || t.starts_with("✗")
+                || t.starts_with("×")
+                || t.contains("assert")
+                || LOC.is_match(l)
         })
         .collect();
     keep.dedup();
@@ -532,6 +545,75 @@ fn env(clean: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join("\n")
+}
+
+// --- JSON: collapse repeated array elements, truncate long scalars ---------
+// The big win for cloud CLIs (`aws … describe-*`, `gcloud … --format=json`),
+// which return huge arrays of near-identical objects.
+fn json_compact(clean: &str) -> String {
+    match serde_json::from_str::<serde_json::Value>(clean.trim()) {
+        Ok(v) => {
+            let c = compact_json(&v);
+            serde_json::to_string(&c).unwrap_or_else(|_| generic(clean))
+        }
+        Err(_) => generic(clean),
+    }
+}
+
+fn compact_json(v: &serde_json::Value) -> serde_json::Value {
+    use serde_json::Value;
+    match v {
+        Value::Array(a) => {
+            let keep = 2usize;
+            if a.len() > keep + 1 {
+                let mut out: Vec<Value> = a.iter().take(keep).map(compact_json).collect();
+                out.push(Value::String(format!("… +{} more items", a.len() - keep)));
+                Value::Array(out)
+            } else {
+                Value::Array(a.iter().map(compact_json).collect())
+            }
+        }
+        Value::Object(o) => {
+            Value::Object(o.iter().map(|(k, val)| (k.clone(), compact_json(val))).collect())
+        }
+        Value::String(s) if s.len() > 120 => {
+            Value::String(format!("{}…", s.chars().take(120).collect::<String>()))
+        }
+        other => other.clone(),
+    }
+}
+
+// --- cloud CLIs: JSON when present, else compact tables --------------------
+fn cloud(clean: &str) -> String {
+    let t = clean.trim_start();
+    if t.starts_with('{') || t.starts_with('[') {
+        json_compact(clean)
+    } else {
+        table(clean)
+    }
+}
+
+// --- database clients: compact rows, cap, drop borders ---------------------
+fn dbclient(clean: &str) -> String {
+    let t = table(clean);
+    let lines: Vec<&str> = t.lines().collect();
+    let cap = 200usize;
+    if lines.len() > cap {
+        let mut out: Vec<String> = lines.iter().take(cap).map(|s| s.to_string()).collect();
+        out.push(format!("… +{} more rows", lines.len() - cap));
+        out.join("\n")
+    } else {
+        t
+    }
+}
+
+// --- http clients: headers + a capped body --------------------------------
+fn http(clean: &str) -> String {
+    let t = clean.trim_start();
+    if t.starts_with('{') || t.starts_with('[') {
+        return json_compact(clean);
+    }
+    passthrough_cap(clean, 200)
 }
 
 fn generic(clean: &str) -> String {

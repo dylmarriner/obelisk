@@ -70,6 +70,13 @@ pub fn apply(prog: &str, args: &[String], raw: &str) -> String {
         | "lsblk" | "lscpu" | "mount" => table(&clean),
         "netstat" | "ss" | "lsof" | "ip" | "ifconfig" | "route" | "arp" => table(&clean),
         "ping" | "traceroute" | "tracepath" | "mtr" | "dig" | "nslookup" | "host" => netdiag(&clean),
+        "strace" | "ltrace" | "dtruss" | "dtrace" => logs(&clean),
+        "rsync" | "scp" | "sftp" | "rclone" => transfer(&clean),
+        "tar" | "unzip" | "zip" | "7z" | "7za" | "gzip" | "gunzip" | "unrar" => archive(&clean),
+        "nmap" | "masscan" => nmap(&clean),
+        "valgrind" => compiler(&clean),
+        "man" | "info" | "tldr" => passthrough_cap(&clean, 300),
+        "ffmpeg" | "ffprobe" | "yt-dlp" | "youtube-dl" | "wget2" => tail_only(&clean, 4),
         "pip" | "pip3" | "poetry" | "gem" | "bundle" | "composer" | "apt" | "apt-get"
         | "brew" | "dnf" | "yum" | "pacman" | "snap" | "dpkg" | "rpm" | "conda"
         | "nix" | "cabal" | "opam" => pkg(&clean),
@@ -616,6 +623,160 @@ fn http(clean: &str) -> String {
     passthrough_cap(clean, 200)
 }
 
+// --- file transfers: drop per-file progress, keep the summary -------------
+fn transfer(clean: &str) -> String {
+    lazy_static! {
+        static ref KEEP: Regex = Regex::new(
+            r"(?i)(sent .* received|total size|speedup|bytes/sec|transferred|^Number of files|^Total transferred|error|failed|denied)"
+        ).unwrap();
+    }
+    let keep: Vec<&str> = clean
+        .lines()
+        .filter(|l| !l.trim().is_empty() && KEEP.is_match(l))
+        .collect();
+    if keep.is_empty() {
+        // fall back to a capped file list
+        passthrough_cap(clean, 60)
+    } else {
+        keep.join("\n")
+    }
+}
+
+// --- archives: a capped file listing --------------------------------------
+fn archive(clean: &str) -> String {
+    let lines: Vec<&str> = clean.lines().filter(|l| !l.trim().is_empty()).collect();
+    let cap = 80usize;
+    if lines.len() > cap {
+        let mut out: Vec<String> = lines.iter().take(cap).map(|s| s.to_string()).collect();
+        out.push(format!("… +{} more entries", lines.len() - cap));
+        out.join("\n")
+    } else {
+        lines.join("\n")
+    }
+}
+
+// --- nmap: open ports + host status only ----------------------------------
+fn nmap(clean: &str) -> String {
+    lazy_static! {
+        static ref KEEP: Regex = Regex::new(
+            r"(?i)(open|filtered\b|Nmap scan report|Host is|PORT\s+STATE|MAC Address|^\d+/(tcp|udp)|scanned in)"
+        ).unwrap();
+    }
+    let keep: Vec<&str> = clean.lines().filter(|l| KEEP.is_match(l) && !l.trim().is_empty()).collect();
+    if keep.is_empty() { tail_summary(clean, 3) } else { keep.join("\n") }
+}
+
+fn tail_only(clean: &str, n: usize) -> String {
+    tail_summary(clean, n)
+}
+
 fn generic(clean: &str) -> String {
     squeeze::squeeze(clean, false).map(|s| s.text).unwrap_or_else(|_| clean.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn a(prog: &str, args: &[&str], raw: &str) -> String {
+        let av: Vec<String> = args.iter().map(|s| s.to_string()).collect();
+        apply(prog, &av, raw)
+    }
+
+    #[test]
+    fn search_groups_and_shrinks() {
+        let mut raw = String::new();
+        for i in 0..50 {
+            raw.push_str(&format!("src/a.rs:{i}:    fn thing{i}() {{}}\n"));
+        }
+        for i in 0..50 {
+            raw.push_str(&format!("src/b.rs:{i}:    fn other{i}() {{}}\n"));
+        }
+        let out = a("grep", &["-rn", "fn"], &raw);
+        assert!(out.len() < raw.len() / 3, "should shrink a lot");
+        assert!(out.contains("src/a.rs (50)"));
+        assert!(out.contains("+46 more")); // per-file cap of 4
+    }
+
+    #[test]
+    fn git_status_keeps_changes_drops_chrome() {
+        let raw = "On branch main\nYour branch is up to date.\n\nChanges not staged for commit:\n  (use \"git add\")\n\tmodified:   src/main.rs\n\tmodified:   src/lib.rs\n";
+        let out = a("git", &["status"], raw);
+        assert!(out.contains("modified:   src/main.rs"));
+        assert!(!out.contains("up to date"));
+    }
+
+    #[test]
+    fn git_clean_is_one_line() {
+        let raw = "On branch main\nnothing to commit, working tree clean\n";
+        assert_eq!(a("git", &["status"], raw), "clean — nothing to commit");
+    }
+
+    #[test]
+    fn logs_dedup_collapses_repeats() {
+        let mut raw = String::new();
+        for _ in 0..1000 {
+            raw.push_str("Jun 30 12:00:00 host app[1]: INFO request handled status=200\n");
+        }
+        let out = logs(&raw);
+        assert!(out.contains("×1000"));
+        assert_eq!(out.lines().count(), 1);
+    }
+
+    #[test]
+    fn logs_keeps_errors_among_noise() {
+        let mut raw = String::new();
+        for i in 0..300 {
+            raw.push_str(&format!("ts host app: INFO ok {i}\n"));
+        }
+        raw.push_str("ts host app: ERROR disk full\n");
+        let out = logs(&raw);
+        assert!(out.to_lowercase().contains("error disk full"));
+    }
+
+    #[test]
+    fn json_collapses_large_arrays() {
+        let raw = r#"{"items":[{"id":1},{"id":2},{"id":3},{"id":4},{"id":5},{"id":6}]}"#;
+        let out = a("aws", &["ec2", "describe"], raw);
+        assert!(out.contains("more items"));
+        assert!(out.len() < raw.len());
+    }
+
+    #[test]
+    fn json_invalid_falls_back() {
+        let out = json_compact("not json at all");
+        assert!(out.contains("not json"));
+    }
+
+    #[test]
+    fn build_keeps_errors_drops_progress() {
+        let raw = "   Compiling foo v0.1.0\n   Compiling bar v0.2.0\nerror[E0433]: failed to resolve\n  --> src/x.rs:3:5\n   Compiling baz v0.3\n";
+        let out = a("cargo", &["build"], raw);
+        assert!(out.contains("error[E0433]"));
+        assert!(!out.contains("Compiling foo"));
+    }
+
+    #[test]
+    fn table_collapses_padding() {
+        let raw = "NAME       STATUS     AGE\npod-a      Running    2d\npod-b      Pending    1h\n";
+        let out = a("kubectl", &["get", "pods"], raw);
+        assert!(out.contains("NAME STATUS AGE"));
+        assert!(out.len() < raw.len());
+    }
+
+    #[test]
+    fn unknown_command_still_compressed() {
+        let raw = "\x1b[31mhello\x1b[0m\n\n\n\nworld\n";
+        let out = a("some-random-tool", &[], raw);
+        assert!(!out.contains('\x1b'));
+    }
+
+    #[test]
+    fn diff_keeps_changes() {
+        let raw = "diff --git a/x b/x\n@@ -1,3 +1,3 @@\n unchanged\n-old line\n+new line\n unchanged2\n";
+        let out = a("git", &["diff"], raw);
+        assert!(out.contains("+new line"));
+        assert!(out.contains("-old line"));
+        assert!(!out.contains("unchanged2"));
+    }
 }

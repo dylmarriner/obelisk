@@ -195,19 +195,7 @@ const HERMES_PLUGIN_YAML: &str =
 const HERMES_PLUGIN_INIT: &str =
     include_str!("../integrations/hermes/obelisk-rewrite/__init__.py");
 
-const OPENCODE_PLUGIN: &str = r#"// Obelisk plugin for OpenCode — routes shell output through `obelisk run`.
-export const obelisk = async ({ $ }) => ({
-  "tool.execute.before": async (input, output) => {
-    if (input.tool !== "bash") return;
-    const cmd = (output.args?.command ?? "").trim();
-    const prog = cmd.split(/\s+/)[0];
-    const ok = ["git","grep","rg","ls","find","cargo","go","npm","pnpm","make","pytest","jest","vitest"];
-    if (ok.includes(prog) && !/[|<>;]|&&/.test(cmd) && !cmd.startsWith("obelisk ")) {
-      output.args.command = `obelisk run ${cmd}`;
-    }
-  },
-});
-"#;
+const OPENCODE_PLUGIN: &str = include_str!("../integrations/opencode/obelisk.ts");
 
 pub fn doctor() -> Result<i32> {
     println!("obelisk {}", env!("CARGO_PKG_VERSION"));

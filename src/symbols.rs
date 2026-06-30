@@ -51,6 +51,34 @@ lazy_static! {
         ("class", Regex::new(r"^\s*(?:public\s+|private\s+|protected\s+|static\s+|final\s+|abstract\s+)*(?:class|interface|enum)\s+([A-Za-z0-9_]+)").unwrap()),
         ("method", Regex::new(r"^\s*(?:public\s+|private\s+|protected\s+|static\s+|final\s+|virtual\s+|inline\s+)*[A-Za-z_][A-Za-z0-9_:<>,\*&\s]*\s+([A-Za-z0-9_]+)\s*\([^;]*\)\s*\{?\s*$").unwrap()),
     ];
+    static ref RUBY: Vec<(&'static str, Regex)> = vec![
+        ("def", Regex::new(r"^\s*def\s+([A-Za-z0-9_?!.]+)").unwrap()),
+        ("class", Regex::new(r"^\s*class\s+([A-Za-z0-9_:]+)").unwrap()),
+        ("module", Regex::new(r"^\s*module\s+([A-Za-z0-9_:]+)").unwrap()),
+    ];
+    static ref ELIXIR: Vec<(&'static str, Regex)> = vec![
+        ("def", Regex::new(r"^\s*defp?\s+([A-Za-z0-9_?!]+)").unwrap()),
+        ("module", Regex::new(r"^\s*defmodule\s+([A-Za-z0-9_.]+)").unwrap()),
+    ];
+    static ref LUA: Vec<(&'static str, Regex)> = vec![
+        ("function", Regex::new(r"^\s*(?:local\s+)?function\s+([A-Za-z0-9_.:]+)").unwrap()),
+    ];
+    static ref KOTLIN: Vec<(&'static str, Regex)> = vec![
+        ("fun", Regex::new(r"^\s*(?:[a-z]+\s+)*fun\s+(?:<[^>]*>\s*)?([A-Za-z0-9_]+)").unwrap()),
+        ("class", Regex::new(r"^\s*(?:[a-z]+\s+)*(?:class|object|interface)\s+([A-Za-z0-9_]+)").unwrap()),
+    ];
+    static ref SWIFT: Vec<(&'static str, Regex)> = vec![
+        ("func", Regex::new(r"^\s*(?:[a-z]+\s+)*func\s+([A-Za-z0-9_]+)").unwrap()),
+        ("type", Regex::new(r"^\s*(?:[a-z]+\s+)*(?:class|struct|enum|protocol|extension)\s+([A-Za-z0-9_]+)").unwrap()),
+    ];
+    static ref SCALA: Vec<(&'static str, Regex)> = vec![
+        ("def", Regex::new(r"^\s*(?:[a-z]+\s+)*def\s+([A-Za-z0-9_]+)").unwrap()),
+        ("type", Regex::new(r"^\s*(?:[a-z]+\s+)*(?:class|object|trait|case class)\s+([A-Za-z0-9_]+)").unwrap()),
+    ];
+    static ref PHP: Vec<(&'static str, Regex)> = vec![
+        ("function", Regex::new(r"^\s*(?:[a-z]+\s+)*function\s+([A-Za-z0-9_]+)").unwrap()),
+        ("class", Regex::new(r"^\s*(?:abstract\s+|final\s+)*(?:class|interface|trait)\s+([A-Za-z0-9_]+)").unwrap()),
+    ];
 }
 
 fn detect(path: &Path) -> Option<(&'static Vec<(&'static str, Regex)>, Block)> {
@@ -60,6 +88,13 @@ fn detect(path: &Path) -> Option<(&'static Vec<(&'static str, Regex)>, Block)> {
         "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" => Some((&JS, Block::Brace)),
         "go" => Some((&GO, Block::Brace)),
         "c" | "h" | "cc" | "cpp" | "hpp" | "cxx" | "java" | "cs" => Some((&CLIKE, Block::Brace)),
+        "kt" | "kts" => Some((&KOTLIN, Block::Brace)),
+        "swift" => Some((&SWIFT, Block::Brace)),
+        "scala" | "sc" => Some((&SCALA, Block::Brace)),
+        "php" => Some((&PHP, Block::Brace)),
+        "rb" | "rake" => Some((&RUBY, Block::Indent)),
+        "ex" | "exs" => Some((&ELIXIR, Block::Indent)),
+        "lua" => Some((&LUA, Block::Indent)),
         _ => None,
     }
 }
@@ -143,6 +178,64 @@ pub fn outline(file: &str) -> Result<i32> {
         println!("  {:<8} {:<32} L{}-{}", s.kind, s.name, s.start, s.end);
     }
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    fn syms(name: &str, src: &str) -> Vec<Symbol> {
+        parse(Path::new(name), src).unwrap()
+    }
+
+    #[test]
+    fn rust_fn_and_struct() {
+        let src = "pub fn alpha(x: i32) -> i32 {\n    x + 1\n}\n\nstruct Beta {\n    a: u8,\n}\n";
+        let s = syms("x.rs", src);
+        assert!(s.iter().any(|y| y.name == "alpha" && y.kind == "fn"));
+        let beta = s.iter().find(|y| y.name == "Beta").unwrap();
+        assert_eq!((beta.start, beta.end), (5, 7));
+    }
+
+    #[test]
+    fn python_indented_block() {
+        let src = "def outer():\n    x = 1\n    return x\n\nclass C:\n    def m(self):\n        pass\n";
+        let s = syms("x.py", src);
+        let outer = s.iter().find(|y| y.name == "outer").unwrap();
+        assert_eq!(outer.start, 1);
+        assert_eq!(outer.end, 3);
+        assert!(s.iter().any(|y| y.name == "C" && y.kind == "class"));
+    }
+
+    #[test]
+    fn ruby_indented() {
+        let src = "class Foo\n  def bar\n    1\n  end\nend\n";
+        let s = syms("x.rb", src);
+        assert!(s.iter().any(|y| y.name == "bar" && y.kind == "def"));
+        assert!(s.iter().any(|y| y.name == "Foo"));
+    }
+
+    #[test]
+    fn typescript_arrow_and_class() {
+        let src = "export const handler = async (req) => {\n  return 1;\n};\n\nclass Svc {\n  run() {}\n}\n";
+        let s = syms("x.ts", src);
+        assert!(s.iter().any(|y| y.name == "handler"));
+        assert!(s.iter().any(|y| y.name == "Svc" && y.kind == "class"));
+    }
+
+    #[test]
+    fn go_func() {
+        let src = "func Handle(w http.ResponseWriter) {\n\tfmt.Println(\"x\")\n}\n";
+        let s = syms("x.go", src);
+        assert!(s.iter().any(|y| y.name == "Handle" && y.kind == "func"));
+    }
+
+    #[test]
+    fn swift_and_kotlin() {
+        assert!(syms("x.swift", "func greet() {\n}\n").iter().any(|y| y.name == "greet"));
+        assert!(syms("x.kt", "fun main() {\n}\n").iter().any(|y| y.name == "main"));
+    }
 }
 
 pub fn symbol(file: &str, name: &str) -> Result<i32> {

@@ -84,7 +84,7 @@ enum Commands {
         #[arg(default_value_t = 14)]
         days: i64,
     },
-    /// Wire Obelisk into an AI coding agent (claude|hermes|opencode|openclaw).
+    /// Wire Obelisk into an AI coding agent (claude|hermes|opencode|openclaw|codex|cline).
     Install { agent: String },
     /// Hook processor invoked by an agent on tool use (reads JSON from stdin).
     Hook { agent: String },
@@ -181,6 +181,7 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
         Commands::Install { agent } => install::run(&agent),
         Commands::Hook { agent } => match agent.as_str() {
             "claude" => hook::claude(),
+            "codex" => hook::codex(),
             other => {
                 eprintln!("obelisk: no hook processor for '{other}'");
                 Ok(1)

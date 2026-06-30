@@ -55,3 +55,40 @@ pub fn claude() -> Result<i32> {
     }
     Ok(0)
 }
+
+/// Codex CLI's hooks.json uses the same PreToolUse contract as Claude Code
+/// (matcher/hooks/command, hookSpecificOutput.updatedInput on stdout), but its
+/// shell tool's name and argument shape vary by version, so we accept a few.
+pub fn codex() -> Result<i32> {
+    let mut buf = String::new();
+    std::io::stdin().read_to_string(&mut buf)?;
+    let v: serde_json::Value = serde_json::from_str(&buf).unwrap_or(serde_json::Value::Null);
+    let tool = v.get("tool_name").and_then(|t| t.as_str()).unwrap_or("");
+    if !matches!(tool, "Bash" | "shell" | "local_shell" | "exec_command") {
+        return Ok(0);
+    }
+
+    let input = v.get("tool_input").cloned().unwrap_or(serde_json::Value::Null);
+    let cmd = if let Some(s) = input.get("command").and_then(|c| c.as_str()) {
+        s.to_string()
+    } else if let Some(arr) = input.get("command").and_then(|c| c.as_array()) {
+        arr.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" ")
+    } else if let Some(arr) = input.get("argv").and_then(|c| c.as_array()) {
+        arr.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>().join(" ")
+    } else {
+        String::new()
+    };
+
+    if eligible(&cmd) {
+        let rewritten = format!("obelisk run {cmd}");
+        let out = serde_json::json!({
+            "hookSpecificOutput": {
+                "hookEventName": "PreToolUse",
+                "permissionDecisionReason": "Obelisk output compression",
+                "updatedInput": { "command": rewritten }
+            }
+        });
+        println!("{out}");
+    }
+    Ok(0)
+}

@@ -22,6 +22,8 @@ ledger.
 | Visibility | `obelisk stats` | Shows token savings across layers. |
 | Agent hooks | `obelisk install <agent>` | Wires Obelisk into supported coding agents. |
 | Claude plugin | `plugins/claude-code-obelisk` | Reusable Claude Code plugin with hooks, skills, and a context optimizer agent. |
+| Hermes plugin | `plugins/hermes-obelisk` | Hermes Agent plugin with tools, hooks, slash commands, CLI commands, and skills. |
+| Paperclip plugin | `plugins/paperclip-obelisk` | Paperclip plugin prototype for heartbeat/task context packing, run-output compression, restore handles, and savings UI. |
 | Learning | `obelisk learn` | Optional usage-triggered self-improvement loop. Read the warning docs first. |
 
 ## Why it is different
@@ -36,6 +38,8 @@ Obelisk is designed as a full context-optimization layer for coding agents:
 - local SQLite ledger
 - agent hook installation
 - Claude Code plugin packaging
+- Hermes plugin packaging
+- Paperclip heartbeat/task context optimization
 - savings dashboard
 - optional gap logging for future improvement
 
@@ -83,7 +87,7 @@ For details, read:
 
 ## Claude Code plugin
 
-Obelisk also ships a Claude Code plugin package:
+Obelisk ships a Claude Code plugin package:
 
 ```text
 plugins/claude-code-obelisk
@@ -120,6 +124,83 @@ The plugin expects the `obelisk` binary to already be installed on PATH. Bundlin
 Plugin docs:
 
 - [Claude Code plugin README](plugins/claude-code-obelisk/README.md)
+
+## Hermes plugin
+
+Obelisk ships a Hermes Agent plugin package:
+
+```text
+plugins/hermes-obelisk
+```
+
+Install from the repository root:
+
+```bash
+mkdir -p ~/.hermes/plugins
+cp -R plugins/hermes-obelisk ~/.hermes/plugins/obelisk
+hermes plugins enable obelisk
+```
+
+The Hermes plugin adds:
+
+- `obelisk_run`
+- `obelisk_pack`
+- `obelisk_outline`
+- `obelisk_symbol`
+- `obelisk_restore`
+- `obelisk_rewrite`
+- `obelisk_stats`
+- `obelisk_doctor`
+- `/obelisk`, `/obelisk-stats`, and `/obelisk-doctor`
+- bundled skills for pack/context/symbol/restore workflows
+- a cautious `pre_tool_call` hook for shell command rewriting where Hermes supports it
+
+Plugin docs:
+
+- [Hermes plugin README](plugins/hermes-obelisk/README.md)
+
+## Paperclip plugin
+
+Obelisk also includes an early Paperclip plugin prototype:
+
+```text
+plugins/paperclip-obelisk
+```
+
+The Paperclip plugin targets the expensive part of agent orchestration: repeated task-start and heartbeat context. It exposes tools such as:
+
+```text
+task-pack
+heartbeat-pack
+compress-run-output
+restore-context
+context-diff
+savings-report
+```
+
+The goal is to make Paperclip send:
+
+```text
+compact task capsule
++ changed events since last heartbeat
++ relevant workspace diff
++ restore handles for bulky originals
+```
+
+instead of resending the entire company/project/goal/task backstory every heartbeat like a tiny bureaucracy with a token meter.
+
+Build the prototype:
+
+```bash
+cd plugins/paperclip-obelisk
+npm install
+npm run check
+npm run build
+```
+
+Plugin docs:
+
+- [Paperclip plugin README](plugins/paperclip-obelisk/README.md)
 
 ## Basic usage
 
@@ -223,6 +304,8 @@ grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .cliner
 - [Self-improvement](docs/SELF_IMPROVEMENT.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
 - [Claude Code plugin](plugins/claude-code-obelisk/README.md)
+- [Hermes plugin](plugins/hermes-obelisk/README.md)
+- [Paperclip plugin](plugins/paperclip-obelisk/README.md)
 
 ## Development
 
@@ -241,5 +324,7 @@ cargo build --release
 - Recovery through restore handles.
 - Agent hooks for command-output reduction.
 - Claude Code plugin as a clean reusable integration layer.
+- Hermes plugin as a first-class agent-runtime integration layer.
+- Paperclip plugin as a control-plane context optimizer for task starts and heartbeats.
 
 MIT licensed.

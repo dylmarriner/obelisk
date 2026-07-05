@@ -1,6 +1,6 @@
 # Agent integrations
 
-Obelisk can be wired into coding agents so noisy shell output is routed through `obelisk run` before it lands in model context.
+Obelisk can be wired into coding agents so noisy shell output and repeated task context are routed through Obelisk before they land in model context.
 
 ## General rule
 
@@ -66,6 +66,27 @@ git status
 
 If wired correctly, the command should be routed through Obelisk.
 
+### Claude Code plugin package
+
+Obelisk also ships a reusable Claude Code plugin package:
+
+```bash
+claude --plugin-dir ./plugins/claude-code-obelisk
+```
+
+It provides:
+
+- Bash `PreToolUse` hook
+- `/obelisk:pack-context`
+- `/obelisk:inspect-symbol`
+- `/obelisk:compact-output`
+- `/obelisk:restore-context`
+- `context-optimizer` agent
+
+Read:
+
+- [`plugins/claude-code-obelisk/README.md`](../plugins/claude-code-obelisk/README.md)
+
 ## Codex
 
 Install:
@@ -107,7 +128,7 @@ Restart OpenCode after installing.
 
 ## Hermes
 
-Install:
+Legacy install:
 
 ```bash
 obelisk install hermes
@@ -125,6 +146,88 @@ grep -Rni "obelisk" ~/.hermes 2>/dev/null || true
 ```
 
 Restart Hermes after installing.
+
+### Hermes plugin package
+
+Obelisk also ships a Hermes-native plugin package:
+
+```bash
+mkdir -p ~/.hermes/plugins
+cp -R plugins/hermes-obelisk ~/.hermes/plugins/obelisk
+hermes plugins enable obelisk
+```
+
+Or enable manually in `~/.hermes/config.yaml`:
+
+```yaml
+plugins:
+  enabled:
+    - obelisk
+```
+
+It provides:
+
+- `obelisk_run`
+- `obelisk_pack`
+- `obelisk_outline`
+- `obelisk_symbol`
+- `obelisk_restore`
+- `obelisk_rewrite`
+- `obelisk_stats`
+- `obelisk_doctor`
+- `/obelisk`, `/obelisk-stats`, `/obelisk-doctor`
+- bundled Hermes skills
+- a best-effort `pre_tool_call` hook
+
+Read:
+
+- [`plugins/hermes-obelisk/README.md`](../plugins/hermes-obelisk/README.md)
+
+## Paperclip
+
+Paperclip is not a normal single-agent runtime. It is a control plane for teams of agents, tasks, goals, budgets, and heartbeats. Obelisk therefore integrates with it differently.
+
+The Paperclip plugin prototype lives here:
+
+```text
+plugins/paperclip-obelisk
+```
+
+Build it:
+
+```bash
+cd plugins/paperclip-obelisk
+npm install
+npm run check
+npm run build
+```
+
+It contributes Paperclip agent tools:
+
+```text
+task-pack
+heartbeat-pack
+compress-run-output
+restore-context
+context-diff
+savings-report
+```
+
+The main target is repeated heartbeat/task-start context, not just terminal output:
+
+```text
+Paperclip task or heartbeat
+↓
+Obelisk task-pack / heartbeat-pack
+↓
+compact task capsule + changed events + workspace diff + restore handles
+↓
+agent run
+```
+
+Read:
+
+- [`plugins/paperclip-obelisk/README.md`](../plugins/paperclip-obelisk/README.md)
 
 ## OpenClaw
 

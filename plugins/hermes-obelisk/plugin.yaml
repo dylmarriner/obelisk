@@ -1,0 +1,3 @@
+name: obelisk
+version: "0.1.0"
+description: Obelisk context firewall integration for Hermes Agent. Adds tools, commands, hooks, and skills for compact command output, context packing, symbol lookup, and restore handles.

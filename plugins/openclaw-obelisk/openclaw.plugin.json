@@ -1,0 +1,50 @@
+{
+  "id": "obelisk",
+  "name": "Obelisk",
+  "description": "Context firewall tools for OpenClaw agents: compact command output, pack context, inspect symbols, restore handles, and report token savings.",
+  "contracts": {
+    "tools": [
+      "obelisk_pack",
+      "obelisk_outline",
+      "obelisk_symbol",
+      "obelisk_restore",
+      "obelisk_stats",
+      "obelisk_doctor",
+      "obelisk_rewrite",
+      "obelisk_run"
+    ]
+  },
+  "toolMetadata": {
+    "obelisk_run": {
+      "optional": true
+    },
+    "obelisk_rewrite": {
+      "optional": true
+    }
+  },
+  "activation": {
+    "onStartup": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "obeliskBinary": {
+        "type": "string",
+        "description": "Path to the Obelisk binary. Defaults to `obelisk` on PATH.",
+        "default": "obelisk"
+      },
+      "defaultPackBudget": {
+        "type": "integer",
+        "description": "Default token budget for obelisk_pack.",
+        "default": 12000,
+        "minimum": 1000
+      },
+      "allowRunTool": {
+        "type": "boolean",
+        "description": "Allow obelisk_run. This is still guarded by the plugin's read-only command policy.",
+        "default": false
+      }
+    }
+  }
+}

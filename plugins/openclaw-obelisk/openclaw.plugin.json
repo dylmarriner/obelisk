@@ -2,6 +2,7 @@
   "id": "obelisk",
   "name": "Obelisk",
   "description": "Context firewall tools for OpenClaw agents: compact command output, pack context, inspect symbols, restore handles, and report token savings.",
+  "version": "0.1.0",
   "contracts": {
     "tools": [
       "obelisk_pack",
@@ -42,7 +43,7 @@
       },
       "allowRunTool": {
         "type": "boolean",
-        "description": "Allow obelisk_run. This is still guarded by the plugin's read-only command policy.",
+        "description": "Allow obelisk_run. This is still guarded by the plugin's read-only command policy and a before_tool_call approval hook.",
         "default": false
       }
     }

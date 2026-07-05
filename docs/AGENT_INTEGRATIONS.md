@@ -231,7 +231,7 @@ Read:
 
 ## OpenClaw
 
-Install:
+Legacy install:
 
 ```bash
 obelisk install openclaw
@@ -246,6 +246,50 @@ Check:
 ```bash
 grep -Rni "obelisk" ~/.openclaw 2>/dev/null || true
 ```
+
+### OpenClaw plugin package
+
+Obelisk also ships a native OpenClaw tool plugin package:
+
+```text
+plugins/openclaw-obelisk
+```
+
+Build and validate:
+
+```bash
+cd plugins/openclaw-obelisk
+npm install
+npm run check
+npm run build
+npm run plugin:validate
+```
+
+Install locally:
+
+```bash
+openclaw plugins install ./plugins/openclaw-obelisk
+openclaw plugins inspect obelisk --runtime
+```
+
+It declares these tools in `openclaw.plugin.json` under `contracts.tools`:
+
+```text
+obelisk_pack
+obelisk_outline
+obelisk_symbol
+obelisk_restore
+obelisk_stats
+obelisk_doctor
+obelisk_rewrite
+obelisk_run
+```
+
+`obelisk_rewrite` and `obelisk_run` are optional. `obelisk_run` is disabled by default in plugin config and guarded by a `before_tool_call` approval hook plus a conservative read-only command validator.
+
+Read:
+
+- [`plugins/openclaw-obelisk/README.md`](../plugins/openclaw-obelisk/README.md)
 
 ## Cline
 

@@ -15,8 +15,13 @@ use std::io::Read;
 /// shouldn't have their output transformed.
 fn eligible(cmd: &str) -> bool {
     let c = cmd.trim();
-    if c.is_empty() || c.contains('|') || c.contains('>') || c.contains('<')
-        || c.contains("&&") || c.contains(';') || c.starts_with("obelisk ")
+    if c.is_empty()
+        || c.contains('|')
+        || c.contains('>')
+        || c.contains('<')
+        || c.contains("&&")
+        || c.contains(';')
+        || c.starts_with("obelisk ")
     {
         return false;
     }
@@ -45,12 +50,23 @@ pub fn rewrite(cmd: &str) -> Option<String> {
     }
 }
 
-fn claude_codex_response(rewritten: &str) -> serde_json::Value {
+fn claude_codex_response(input: &serde_json::Value, rewritten: &str) -> serde_json::Value {
+    let mut updated_input = input
+        .as_object()
+        .cloned()
+        .map(serde_json::Value::Object)
+        .unwrap_or_else(|| serde_json::json!({}));
+
+    if let serde_json::Value::Object(ref mut obj) = updated_input {
+        obj.insert("command".to_string(), serde_json::Value::String(rewritten.to_string()));
+    }
+
     serde_json::json!({
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
+            "permissionDecision": "allow",
             "permissionDecisionReason": "Obelisk output compression",
-            "updatedInput": { "command": rewritten }
+            "updatedInput": updated_input
         }
     })
 }
@@ -60,15 +76,12 @@ pub fn claude() -> Result<i32> {
     std::io::stdin().read_to_string(&mut buf)?;
     let v: serde_json::Value = serde_json::from_str(&buf).unwrap_or(serde_json::Value::Null);
     let tool = v.get("tool_name").and_then(|t| t.as_str()).unwrap_or("");
-    let cmd = v
-        .get("tool_input")
-        .and_then(|i| i.get("command"))
-        .and_then(|c| c.as_str())
-        .unwrap_or("");
+    let input = v.get("tool_input").cloned().unwrap_or(serde_json::Value::Null);
+    let cmd = input.get("command").and_then(|c| c.as_str()).unwrap_or("");
 
     if tool == "Bash" {
         if let Some(rewritten) = rewrite(cmd) {
-            println!("{}", claude_codex_response(&rewritten));
+            println!("{}", claude_codex_response(&input, &rewritten));
         }
     }
     Ok(0)
@@ -98,7 +111,47 @@ pub fn codex() -> Result<i32> {
     };
 
     if let Some(rewritten) = rewrite(&cmd) {
-        println!("{}", claude_codex_response(&rewritten));
+        println!("{}", claude_codex_response(&input, &rewritten));
     }
     Ok(0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn rewrites_noisy_read_only_commands() {
+        assert_eq!(rewrite("cargo build"), Some("obelisk run cargo build".to_string()));
+        assert_eq!(rewrite("git status"), Some("obelisk run git status".to_string()));
+    }
+
+    #[test]
+    fn refuses_mutating_or_complex_commands() {
+        assert_eq!(rewrite("git push"), None);
+        assert_eq!(rewrite("cargo build | tee build.log"), None);
+        assert_eq!(rewrite("obelisk run git status"), None);
+    }
+
+    #[test]
+    fn pre_tool_response_preserves_existing_bash_fields() {
+        let input = serde_json::json!({
+            "command": "cargo build",
+            "description": "Build the project",
+            "timeout": 120000,
+            "run_in_background": false
+        });
+        let response = claude_codex_response(&input, "obelisk run cargo build");
+        let updated = response
+            .pointer("/hookSpecificOutput/updatedInput")
+            .expect("updated input");
+
+        assert_eq!(updated.get("command").and_then(|v| v.as_str()), Some("obelisk run cargo build"));
+        assert_eq!(updated.get("description").and_then(|v| v.as_str()), Some("Build the project"));
+        assert_eq!(updated.get("timeout").and_then(|v| v.as_i64()), Some(120000));
+        assert_eq!(
+            response.pointer("/hookSpecificOutput/permissionDecision").and_then(|v| v.as_str()),
+            Some("allow")
+        );
+    }
 }

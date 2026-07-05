@@ -21,6 +21,7 @@ ledger.
 | Transport | `obelisk serve` | Runs a local proxy for model API traffic with token accounting. |
 | Visibility | `obelisk stats` | Shows token savings across layers. |
 | Agent hooks | `obelisk install <agent>` | Wires Obelisk into supported coding agents. |
+| Claude plugin | `plugins/claude-code-obelisk` | Reusable Claude Code plugin with hooks, skills, and a context optimizer agent. |
 | Learning | `obelisk learn` | Optional usage-triggered self-improvement loop. Read the warning docs first. |
 
 ## Why it is different
@@ -34,6 +35,7 @@ Obelisk is designed as a full context-optimization layer for coding agents:
 - reversible restore handles
 - local SQLite ledger
 - agent hook installation
+- Claude Code plugin packaging
 - savings dashboard
 - optional gap logging for future improvement
 
@@ -78,6 +80,46 @@ Then restart the agent.
 For details, read:
 
 - [Agent integrations](docs/AGENT_INTEGRATIONS.md)
+
+## Claude Code plugin
+
+Obelisk also ships a Claude Code plugin package:
+
+```text
+plugins/claude-code-obelisk
+```
+
+Test it locally from the repository root:
+
+```bash
+claude --plugin-dir ./plugins/claude-code-obelisk
+```
+
+Inside Claude Code:
+
+```text
+/help
+/reload-plugins
+/obelisk:pack-context
+/obelisk:inspect-symbol
+/obelisk:compact-output
+/obelisk:restore-context
+```
+
+The plugin includes:
+
+- a `PreToolUse` Bash hook that calls `obelisk hook claude`
+- `/obelisk:pack-context` for model-agnostic context bundles
+- `/obelisk:inspect-symbol` for outline/symbol retrieval
+- `/obelisk:compact-output` for noisy command output
+- `/obelisk:restore-context` for restore handles
+- a `context-optimizer` agent for planning compact context before large coding work
+
+The plugin expects the `obelisk` binary to already be installed on PATH. Bundling release binaries can come later, because cross-platform binary distribution is where simple ideas go to be processed into paste.
+
+Plugin docs:
+
+- [Claude Code plugin README](plugins/claude-code-obelisk/README.md)
 
 ## Basic usage
 
@@ -180,6 +222,7 @@ grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .cliner
 - [Agent integrations](docs/AGENT_INTEGRATIONS.md)
 - [Self-improvement](docs/SELF_IMPROVEMENT.md)
 - [Troubleshooting](docs/TROUBLESHOOTING.md)
+- [Claude Code plugin](plugins/claude-code-obelisk/README.md)
 
 ## Development
 
@@ -197,5 +240,6 @@ cargo build --release
 - Model-agnostic context packing.
 - Recovery through restore handles.
 - Agent hooks for command-output reduction.
+- Claude Code plugin as a clean reusable integration layer.
 
 MIT licensed.

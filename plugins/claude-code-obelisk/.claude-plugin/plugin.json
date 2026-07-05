@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "obelisk",
+  "displayName": "Obelisk",
+  "version": "0.1.0",
+  "description": "Token optimization layer for Claude Code: compress command output, pack context, inspect symbols, and restore compressed originals.",
+  "author": {
+    "name": "Dylan Marriner"
+  },
+  "repository": "https://github.com/dylmarriner/obelisk",
+  "license": "MIT",
+  "keywords": [
+    "tokens",
+    "context",
+    "compression",
+    "coding-agent",
+    "claude-code"
+  ]
+}

@@ -5,6 +5,7 @@
 //!   squeeze  collapse boilerplate from any text stream
 //!   terse    terse-ify prose (code left intact)
 //!   outline/symbol   structural code retrieval — fetch a symbol, not a file
+//!   pack     build a model-agnostic, token-budgeted context bundle
 //!   marker/checkpoint/restore   save & reload context compactly
 //!   serve    a local optimization proxy for the model API
 //!   stats    one savings dashboard across every layer
@@ -20,6 +21,7 @@ mod install;
 mod learn;
 mod ledger;
 mod marker;
+mod pack;
 mod proxy;
 mod squeeze;
 mod symbols;
@@ -57,6 +59,33 @@ enum Commands {
     Outline { file: String },
     /// Extract just one symbol's source (fetch the function, not the whole file).
     Symbol { file: String, name: String },
+    /// Build a provider-neutral, token-budgeted context bundle.
+    Pack {
+        /// Approximate token budget for the whole packed context.
+        #[arg(long, default_value_t = 12_000)]
+        budget: usize,
+        /// Stable system/instruction file to include. Repeatable.
+        #[arg(long)]
+        system: Vec<String>,
+        /// Chat/session history file to squeeze into compact state. Repeatable.
+        #[arg(long)]
+        history: Vec<String>,
+        /// Explicit file to include or outline. Repeatable.
+        #[arg(long = "file")]
+        file: Vec<String>,
+        /// Directory to map without reading every file. Repeatable.
+        #[arg(long = "dir")]
+        dir: Vec<String>,
+        /// Include current git diff/stat/name-only if available.
+        #[arg(long)]
+        diff: bool,
+        /// Tool schema JSON to compact into a names/descriptions view.
+        #[arg(long)]
+        tools: Option<String>,
+        /// Write packed context to a file instead of stdout.
+        #[arg(long)]
+        out: Option<String>,
+    },
     /// Context markers: compact named summaries to resume work without reloading.
     #[command(trailing_var_arg = true)]
     Marker {
@@ -162,6 +191,9 @@ fn run(cli: Cli) -> anyhow::Result<i32> {
         }
         Commands::Outline { file } => symbols::outline(&file),
         Commands::Symbol { file, name } => symbols::symbol(&file, &name),
+        Commands::Pack { budget, system, history, file, dir, diff, tools, out } => {
+            pack::run(budget, &system, &history, &file, &dir, diff, tools.as_ref(), out.as_ref())
+        }
         Commands::Marker { args } => marker::run(&args),
         Commands::Checkpoint { label } => {
             let h = ledger::checkpoint(&read_stdin(), &label)?;

@@ -24,6 +24,7 @@ ledger.
 | Claude plugin | `plugins/claude-code-obelisk` | Reusable Claude Code plugin with hooks, skills, and a context optimizer agent. |
 | Hermes plugin | `plugins/hermes-obelisk` | Hermes Agent plugin with tools, hooks, slash commands, CLI commands, and skills. |
 | Paperclip plugin | `plugins/paperclip-obelisk` | Paperclip plugin prototype for heartbeat/task context packing, run-output compression, restore handles, and savings UI. |
+| OpenClaw plugin | `plugins/openclaw-obelisk` | OpenClaw native tool plugin with Obelisk tools, optional command compression, and an approval hook. |
 | Learning | `obelisk learn` | Optional usage-triggered self-improvement loop. Read the warning docs first. |
 
 ## Why it is different
@@ -40,6 +41,7 @@ Obelisk is designed as a full context-optimization layer for coding agents:
 - Claude Code plugin packaging
 - Hermes plugin packaging
 - Paperclip heartbeat/task context optimization
+- OpenClaw native tool plugin packaging
 - savings dashboard
 - optional gap logging for future improvement
 
@@ -202,6 +204,43 @@ Plugin docs:
 
 - [Paperclip plugin README](plugins/paperclip-obelisk/README.md)
 
+## OpenClaw plugin
+
+Obelisk now includes an OpenClaw native tool plugin package:
+
+```text
+plugins/openclaw-obelisk
+```
+
+It exposes:
+
+```text
+obelisk_pack
+obelisk_outline
+obelisk_symbol
+obelisk_restore
+obelisk_stats
+obelisk_doctor
+obelisk_rewrite
+obelisk_run
+```
+
+`obelisk_rewrite` and `obelisk_run` are optional tools. `obelisk_run` is disabled by config by default and guarded by a `before_tool_call` approval hook plus a read-only command validator.
+
+Build and validate:
+
+```bash
+cd plugins/openclaw-obelisk
+npm install
+npm run check
+npm run build
+npm run plugin:validate
+```
+
+Plugin docs:
+
+- [OpenClaw plugin README](plugins/openclaw-obelisk/README.md)
+
 ## Basic usage
 
 ```bash
@@ -306,6 +345,7 @@ grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .cliner
 - [Claude Code plugin](plugins/claude-code-obelisk/README.md)
 - [Hermes plugin](plugins/hermes-obelisk/README.md)
 - [Paperclip plugin](plugins/paperclip-obelisk/README.md)
+- [OpenClaw plugin](plugins/openclaw-obelisk/README.md)
 
 ## Development
 
@@ -326,5 +366,6 @@ cargo build --release
 - Claude Code plugin as a clean reusable integration layer.
 - Hermes plugin as a first-class agent-runtime integration layer.
 - Paperclip plugin as a control-plane context optimizer for task starts and heartbeats.
+- OpenClaw plugin as a native OpenClaw tool integration layer.
 
 MIT licensed.

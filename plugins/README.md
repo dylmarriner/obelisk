@@ -9,6 +9,7 @@ Obelisk keeps the Rust binary as the core engine and uses thin plugin packages f
 | [`claude-code-obelisk`](claude-code-obelisk/README.md) | Claude Code | Local plugin package | Hooks, skills, and context optimizer agent. |
 | [`hermes-obelisk`](hermes-obelisk/README.md) | Hermes Agent | Native plugin package | Tools, hooks, slash commands, CLI commands, and skills. |
 | [`paperclip-obelisk`](paperclip-obelisk/README.md) | Paperclip | Prototype | Task-start and heartbeat context packing, run-output compression, restore handles, and savings UI. |
+| [`openclaw-obelisk`](openclaw-obelisk/README.md) | OpenClaw | Native tool plugin package | Agent-callable Obelisk tools, optional command compression, and approval hook. |
 
 ## Design rule
 
@@ -24,7 +25,7 @@ obelisk binary
 local ledger + compression + packing + restore handles
 ```
 
-Do not reimplement Obelisk logic inside a plugin unless the host API requires a tiny compatibility layer. Reimplementing the same engine three times would be a monument to human overconfidence.
+Do not reimplement Obelisk logic inside a plugin unless the host API requires a tiny compatibility layer. Reimplementing the same engine four times would be a monument to human overconfidence.
 
 ## Safety rule
 

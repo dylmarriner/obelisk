@@ -70,6 +70,10 @@ export function asText(value: unknown, fallback = ""): string {
   return typeof value === "string" ? value : fallback;
 }
 
+export function asOptionalText(value: unknown): string | undefined {
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
 export function asBool(value: unknown, fallback = false): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
@@ -192,13 +196,6 @@ export async function packWithTemporarySystem(input: {
   }
 }
 
-export function toToolContent(result: unknown) {
-  return {
-    content: [
-      {
-        type: "text" as const,
-        text: typeof result === "string" ? result : JSON.stringify(result, null, 2)
-      }
-    ]
-  };
+export function toOpenClawResult(result: unknown) {
+  return typeof result === "string" ? result : result;
 }

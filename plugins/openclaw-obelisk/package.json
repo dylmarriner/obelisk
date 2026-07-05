@@ -6,7 +6,10 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "check": "tsc --noEmit -p tsconfig.json"
+    "check": "tsc --noEmit -p tsconfig.json",
+    "plugin:build": "npm run build && openclaw plugins build --entry ./dist/index.js",
+    "plugin:validate": "npm run build && openclaw plugins validate --entry ./dist/index.js",
+    "plugin:validate:check": "npm run build && openclaw plugins build --entry ./dist/index.js --check && openclaw plugins validate --entry ./dist/index.js"
   },
   "files": [
     "dist",
@@ -14,13 +17,14 @@
     "README.md"
   ],
   "dependencies": {
-    "typebox": "1.1.39"
+    "typebox": "^1.1.39"
   },
   "peerDependencies": {
-    "openclaw": ">=2026.3.24-beta.2"
+    "openclaw": ">=2026.5.17"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "openclaw": "^2026.5.17",
     "typescript": "^5.5.0"
   },
   "openclaw": {
@@ -28,12 +32,12 @@
       "./dist/index.js"
     ],
     "compat": {
-      "pluginApi": ">=2026.3.24-beta.2",
-      "minGatewayVersion": "2026.3.24-beta.2"
+      "pluginApi": ">=2026.5.17",
+      "minGatewayVersion": "2026.5.17"
     },
     "build": {
-      "openclawVersion": "2026.3.24-beta.2",
-      "pluginSdkVersion": "2026.3.24-beta.2"
+      "openclawVersion": "2026.5.17",
+      "pluginSdkVersion": "2026.5.17"
     }
   }
 }

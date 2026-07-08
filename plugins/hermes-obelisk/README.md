@@ -1,34 +1,69 @@
+<p align="center">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/obelisk-v0.2.0-4A90D9?style=flat-square" alt="Obelisk Hermes Plugin"></a>
+  <a href="../../docs/README.md"><img src="https://img.shields.io/badge/docs-hermes%20plugin-informational?style=flat-square" alt="Hermes Plugin Docs"></a>
+</p>
+
 # Obelisk Hermes Plugin
 
-Unified token optimization for Hermes Agent. Merges **Obelisk**'s command-output compression tools with **Token Optimizer**'s per-turn token tracking, context-fill nudges, and session rollup.
+**Unified token optimization for Hermes Agent.** Merges Obelisk's command-output compression tools with Token Optimizer's per-turn token tracking, context-fill nudges, and session rollup.
+
+---
+
+## Table of Contents
+
+- [What It Does](#what-it-does)
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Obelisk Tools](#obelisk-tools)
+- [Token Optimizer Hooks](#token-optimizer-hooks)
+- [Slash Commands](#slash-commands)
+- [CLI Commands](#cli-commands)
+- [Bundled Skills](#bundled-skills)
+- [Context Nudge Details](#context-nudge-details)
+- [How It Works](#how-it-works)
+- [Privacy](#privacy)
+
+---
 
 ## What It Does
 
 ### Obelisk (command compression)
-- `obelisk_run` — run safe read-heavy commands through compact, reversible output
-- `obelisk_pack` — build token-budgeted context packs from files, diffs, history
-- `obelisk_outline` — list source file symbols without reading the full file
-- `obelisk_symbol` — extract one named symbol from a source file
-- `obelisk_restore` — restore a compressed blob/checkpoint by handle
-- `obelisk_rewrite` — ask Obelisk whether a command should be wrapped
-- `obelisk_stats` — show token savings across Obelisk layers
-- `obelisk_doctor` — verify Obelisk installation
+
+| Component | Description |
+|-----------|-------------|
+| `obelisk_run` | Run safe read-heavy commands through compact, reversible output |
+| `obelisk_pack` | Build token-budgeted context packs from files, diffs, history |
+| `obelisk_outline` | List source file symbols without reading the full file |
+| `obelisk_symbol` | Extract one named symbol from a source file |
+| `obelisk_restore` | Restore a compressed blob/checkpoint by handle |
+| `obelisk_rewrite` | Ask Obelisk whether a command should be wrapped |
+| `obelisk_stats` | Show token savings across Obelisk layers |
+| `obelisk_doctor` | Verify Obelisk installation |
 
 ### Token Optimizer (usage tracking)
-- **Context nudge** — proactively warns when context fill crosses ~70%, once per session
-- **Per-turn tally** — accumulates input/output/cache/reasoning tokens per session
-- **Session rollup** — writes session data into the shared Token Optimizer `trends.db` at session end for dashboard visibility
-- **`/obelisk-token`** — slash command showing token and cost summary for recent sessions
-- **`hermes obelisk-token`** — CLI subcommand to open the Token Optimizer dashboard
+
+| Feature | Description |
+|---------|-------------|
+| **Context nudge** | Proactively warns when context fill crosses ~70%, once per session |
+| **Per-turn tally** | Accumulates input/output/cache/reasoning tokens per session |
+| **Session rollup** | Writes session data into the shared Token Optimizer `trends.db` for dashboard visibility |
+| **`/obelisk-token`** | Slash command showing token and cost summary for recent sessions |
+| **`hermes obelisk-token`** | CLI subcommand to open the Token Optimizer dashboard |
+
+---
 
 ## Requirements
 
-- **Obelisk binary** on PATH (`~/.local/bin/obelisk`)
-- **Token Optimizer repo** cloned at `~/Documents/token-optimizer/` (provides `measure.py` engine)
+| Dependency | Location | Purpose |
+|-----------|----------|---------|
+| **Obelisk binary** | `~/.local/bin/obelisk` (on PATH) | Core engine |
+| **Token Optimizer repo** | `~/Documents/token-optimizer/` | `measure.py` engine for rollup and dashboard |
 
-## Install
+---
 
-Build and install Obelisk:
+## Installation
+
+### 1. Build and install Obelisk
 
 ```bash
 cargo build --release
@@ -38,75 +73,72 @@ export PATH="$HOME/.local/bin:$PATH"
 obelisk doctor
 ```
 
-Clone Token Optimizer for the dashboard/rollup engine:
+### 2. (Optional) Clone Token Optimizer for dashboard/rollup
 
 ```bash
 git clone https://github.com/alexgreensh/token-optimizer.git ~/Documents/token-optimizer
 ```
 
-The plugin is already installed at `~/.hermes/plugins/obelisk/` and enabled in Hermes config.
-
-## Slash Commands
-
-| Command | Description |
-|---------|-------------|
-| `/obelisk` | Plugin help and available tools |
-| `/obelisk-stats` | Obelisk token savings stats |
-| `/obelisk-doctor` | Obelisk installation status |
-| `/obelisk-token` | Token/cost summary for recent sessions |
-
-## CLI Commands
+### 3. Install the plugin
 
 ```bash
-hermes obelisk-doctor
-hermes obelisk-stats
-hermes obelisk-token           # opens dashboard
-hermes obelisk-token --port 3000 --session <id>
+mkdir -p ~/.hermes/plugins
+cp -R plugins/hermes-obelisk ~/.hermes/plugins/obelisk
+hermes plugins enable obelisk
 ```
 
-## Tools
+The plugin is already installed at `~/.hermes/plugins/obelisk/` and enabled when you use the `obelisk install hermes` command.
 
-| Tool | Description |
-|------|-------------|
-| `obelisk_run` | Safe read-heavy command through Obelisk |
-| `obelisk_pack` | Token-budgeted context pack |
-| `obelisk_outline` | Source file symbols |
-| `obelisk_symbol` | One symbol from source |
-| `obelisk_restore` | Restore compressed blob |
-| `obelisk_rewrite` | Command rewrite check |
-| `obelisk_stats` | Token savings stats |
-| `obelisk_doctor` | Installation check |
+---
 
-## Skills
+## Tool Schemas
 
-- `obelisk:pack-context`
-- `obelisk:inspect-symbol`
-- `obelisk:compact-output`
-- `obelisk:restore-context`
+| Tool | Parameters | Description |
+|------|-----------|-------------|
+| `obelisk_run` | `command` (required), `timeout_seconds`, `cwd` | Safe command via Obelisk |
+| `obelisk_pack` | `budget`, `system`, `history`, `files`, `dirs`, `diff`, `tools`, `out`, `cwd` | Token-budgeted context pack |
+| `obelisk_outline` | `file` (required), `cwd` | Source file symbols |
+| `obelisk_symbol` | `file` (required), `name` (required), `cwd` | One symbol from source |
+| `obelisk_restore` | `handle` (required), `cwd` | Restore compressed blob |
+| `obelisk_rewrite` | `command` (required), `cwd` | Command rewrite check |
+| `obelisk_stats` | `cwd` | Token savings stats |
+| `obelisk_doctor` | `cwd` | Installation check |
+
+---
 
 ## Context Nudge
 
 Before each turn, the `pre_llm_call` hook estimates how full the context window is. If >70%, it appends a one-line warning to the user message:
 
 ```
-[Obelisk] Context ~73% full (~146,000 input tokens vs assumed 200,000 window) Grade: C. Avoid adding large files; prefers targeted reads.
+[Obelisk] Context ~73% full (~146,000 input tokens vs assumed 200,000 window)
+Grade: C. Avoid adding large files; prefer targeted reads.
 ```
 
 At 85%+, the tip suggests `/compact`.
 
+---
+
 ## How It Works
 
-```
-Hermes turn lifecycle
-    pre_llm_call        → nudge check (fill > 70%?) → inject warning or stay silent
-    post_api_request    → accumulate usage into in-process tally
-    on_session_finalize / on_session_end
-        → hermes_hook_bridge.run_rollup()
-            → measure.py hermes-rollup
-                → reads state.db (read-only), writes trends.db
+```mermaid
+flowchart LR
+    subgraph Turn lifecycle
+        A[pre_llm_call] --> B{nudge check}
+        B -->|fill > 70%| C[Inject warning]
+        B -->|fill <= 70%| D[Silent]
+        A2[post_api_request] --> E[Accumulate usage tally]
+        A3[on_session_finalize / on_session_end] --> F[Run rollup]
+        F --> G[measure.py hermes-rollup]
+        G --> H[Reads state.db, writes trends.db]
+    end
 ```
 
 ### Privacy
 
 - `hermes_state.py` opens `~/.hermes/state.db` read-only with `PRAGMA query_only = ON`
 - No data sent to any external service. No telemetry. No network calls.
+
+---
+
+<p align="center"><a href="../../README.md">← Back to README</a> · <a href="../../docs/README.md">Documentation Index</a></p>

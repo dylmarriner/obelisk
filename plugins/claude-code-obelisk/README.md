@@ -1,27 +1,31 @@
-# Obelisk Claude Code plugin
+<p align="center">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/plugin-claude--code--obelisk-4A90D9?style=flat-square" alt="Claude Code Plugin"></a>
+  <a href="../../docs/README.md"><img src="https://img.shields.io/badge/docs-claude%20code%20plugin-informational?style=flat-square" alt="Plugin Docs"></a>
+</p>
 
-This plugin packages Obelisk for Claude Code as a reusable plugin with hooks, skills, and a context-optimizer agent.
+# Obelisk Claude Code Plugin
 
-Claude Code plugins are self-contained directories that can include skills, agents, hooks, MCP servers, LSP servers, monitors, binaries, and settings. This plugin keeps the compiled Obelisk binary separate for now and expects `obelisk` to already be installed on PATH.
+**Reusable Claude Code plugin packaging Obelisk as hooks, skills, and a context optimizer agent.** Expects `obelisk` to already be installed on PATH.
 
-## What it includes
+---
 
-```text
-.claude-plugin/plugin.json       plugin metadata
-hooks/hooks.json                 PreToolUse Bash hook
-skills/pack-context/SKILL.md     build compact context packs
-skills/inspect-symbol/SKILL.md   use outline/symbol retrieval
-skills/compact-output/SKILL.md   route noisy commands through obelisk run
-skills/restore-context/SKILL.md  restore full originals only when needed
-agents/context-optimizer.md      planning agent for compact context selection
-```
+## Table of Contents
+
+- [Requirements](#requirements)
+- [What's Included](#whats-included)
+- [Test Locally](#test-locally)
+- [Hook Behavior](#hook-behavior)
+- [Skills](#skills)
+- [Context Optimizer Agent](#context-optimizer-agent)
+- [Validation](#validation)
+- [Future Improvements](#future-improvements)
+
+---
 
 ## Requirements
 
-- Claude Code installed and authenticated.
-- Obelisk installed and available on PATH.
-
-Build and install Obelisk:
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code/overview) installed and authenticated
+- [Obelisk](../README.md) installed and available on PATH
 
 ```bash
 cargo build --release
@@ -30,7 +34,27 @@ export PATH="$HOME/.local/bin:$PATH"
 obelisk doctor
 ```
 
-## Test locally
+---
+
+## What's Included
+
+```
+.claude-plugin/
+├── plugin.json              Plugin metadata
+├── hooks/
+│   └── hooks.json           PreToolUse Bash hook
+├── skills/
+│   ├── pack-context/        Build compact context packs
+│   ├── inspect-symbol/      Use outline/symbol retrieval
+│   ├── compact-output/      Route noisy commands through obelisk run
+│   └── restore-context/     Restore full originals only when needed
+└── agents/
+    └── context-optimizer.md Planning agent for compact context
+```
+
+---
+
+## Test Locally
 
 From the Obelisk repository root:
 
@@ -49,7 +73,9 @@ Inside Claude Code:
 /obelisk:restore-context
 ```
 
-## Hook behavior
+---
+
+## Hook Behavior
 
 The plugin registers a `PreToolUse` hook for the Bash tool:
 
@@ -71,36 +97,31 @@ The plugin registers a `PreToolUse` hook for the Bash tool:
 }
 ```
 
-The hook lets Obelisk rewrite eligible read-heavy commands before Bash runs them.
-
-Example:
+The hook rewrites eligible read-heavy commands. Example:
 
 ```bash
 git status
+# → obelisk run git status
 ```
 
-may become:
+**Obelisk does not rewrite** mutating, destructive, interactive, redirected, piped, or already-wrapped commands.
 
-```bash
-obelisk run git status
-```
-
-Obelisk deliberately avoids mutating, destructive, interactive, redirected, piped, or already-wrapped commands. A compression tool that rewrites `git push` would deserve to be unplugged.
+---
 
 ## Skills
 
 Plugin skills are namespaced under the plugin name:
 
-```text
-/obelisk:pack-context
-/obelisk:inspect-symbol
-/obelisk:compact-output
-/obelisk:restore-context
-```
+| Slash Command | Purpose |
+|---------------|---------|
+| `/obelisk:pack-context` | Build compact, model-agnostic context bundles |
+| `/obelisk:inspect-symbol` | Use outline/symbol retrieval efficiently |
+| `/obelisk:compact-output` | Route noisy commands through `obelisk run` |
+| `/obelisk:restore-context` | Restore full originals only when needed |
 
-Use them when Claude needs guidance on context size, noisy shell output, symbol-level inspection, or restore handles.
+---
 
-## Context optimizer agent
+## Context Optimizer Agent
 
 The plugin includes a custom agent:
 
@@ -110,9 +131,16 @@ context-optimizer
 
 Use it before large coding tasks, debugging sessions, architecture work, or PR review. Its job is to decide what context should be packed, outlined, symbol-read, restored, or ignored.
 
-## Validation
+**Operating rules:**
+- Prefer `obelisk pack` for large task handoffs
+- Prefer `obelisk outline` before reading large files
+- Prefer `obelisk symbol` when one function/class is enough
+- Does not edit source files
+- Plans context only
 
-Run:
+---
+
+## Validation
 
 ```bash
 claude plugin validate ./plugins/claude-code-obelisk
@@ -124,9 +152,15 @@ Then test with:
 claude --plugin-dir ./plugins/claude-code-obelisk
 ```
 
-## Future improvements
+---
 
-- Let `obelisk install claude` install this plugin instead of writing ad-hoc hook config.
-- Add release binaries so the plugin can optionally ship or download the right Obelisk binary.
-- Add plugin marketplace packaging.
-- Add a post-tool hook later if Claude Code exposes a clean output replacement path suitable for Obelisk compression.
+## Future Improvements
+
+- Let `obelisk install claude` install this plugin instead of writing ad-hoc hook config
+- Add release binaries so the plugin can optionally ship or download the right Obelisk binary
+- Add plugin marketplace packaging
+- Add a post-tool hook if Claude Code exposes a clean output replacement path
+
+---
+
+<p align="center"><a href="../../README.md">← Back to README</a></p>

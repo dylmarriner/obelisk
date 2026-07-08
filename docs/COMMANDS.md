@@ -1,20 +1,51 @@
-# Obelisk command reference
+<p align="center">
+  <a href="./README.md"><img src="https://img.shields.io/badge/docs-commands-informational?style=flat-square" alt="Commands"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/←%20back-readme-blue?style=flat-square" alt="Back"></a>
+</p>
 
-Obelisk is one binary with several token-reduction layers. This page lists the public commands and how to use them without turning your terminal into a shrine of half-remembered flags.
+# Command Reference
 
-## `obelisk doctor`
+**Every Obelisk command, flag, and usage pattern.** Obelisk is one binary with several token-reduction layers. All commands are accessed through the `obelisk` entry point.
 
-Checks that Obelisk can run and that its local ledger works.
+---
+
+## Table of Contents
+
+- [obelisk doctor](#obelisk-doctor)
+- [obelisk run](#obelisk-run)
+- [obelisk rewrite](#obelisk-rewrite)
+- [obelisk squeeze](#obelisk-squeeze)
+- [obelisk terse](#obelisk-terse)
+- [obelisk outline](#obelisk-outline)
+- [obelisk symbol](#obelisk-symbol)
+- [obelisk pack](#obelisk-pack)
+- [obelisk marker](#obelisk-marker)
+- [obelisk checkpoint](#obelisk-checkpoint)
+- [obelisk restore](#obelisk-restore)
+- [obelisk serve](#obelisk-serve)
+- [obelisk stats](#obelisk-stats)
+- [obelisk gc](#obelisk-gc)
+- [obelisk install](#obelisk-install)
+- [obelisk hook](#obelisk-hook)
+- [obelisk learn](#obelisk-learn)
+
+---
+
+## obelisk doctor
+
+Verify that Obelisk can run and that its local ledger works.
 
 ```bash
 obelisk doctor
 ```
 
-Use this after install, after updates, and after moving the binary.
+**Use after:** install, updates, or moving the binary.
 
-## `obelisk run <cmd>`
+---
 
-Runs a command and prints a compact, reversible version of stdout/stderr.
+## obelisk run
+
+Run a command and emit a compact, reversible view of stdout/stderr. Obelisk chooses a command-specific filter when available and falls back to generic squeezing.
 
 ```bash
 obelisk run git status
@@ -23,85 +54,101 @@ obelisk run pytest
 obelisk run rg "TODO" src
 ```
 
-Use for noisy, read-heavy commands. Obelisk chooses a command-specific filter when available and falls back to generic squeezing.
+**Use for:** noisy, read-heavy commands (builds, tests, search output, logs).
 
-Avoid wrapping mutating or interactive commands manually. Obelisk hooks try to avoid rewriting unsafe commands, but do not outsource judgement to a regex and call it civilisation.
+**Do not use for:** mutating, interactive, or piped commands.
 
-## `obelisk rewrite <cmd>`
+---
 
-Shows whether Obelisk would rewrite a raw command.
+## obelisk rewrite
 
-```bash
-obelisk rewrite git status
-obelisk rewrite cargo build
-obelisk rewrite git push
-```
-
-If eligible, it prints something like:
+Show whether Obelisk would rewrite a given command. Exits 0 with the rewritten command if eligible, exits 1 with no output if not.
 
 ```bash
-obelisk run git status
+obelisk rewrite git status        # prints: obelisk run git status
+obelisk rewrite cargo build       # prints: obelisk run cargo build
+obelisk rewrite git push          # exits 1 (no output)
 ```
 
-If not eligible, it exits with a non-zero status and prints nothing.
+**Use for:** checking hook eligibility or debugging rewrite logic.
 
-## `obelisk squeeze`
+---
 
-Reads text from stdin and removes boilerplate such as ANSI codes, progress bars, repeated lines, blank-line runs, and opaque blobs.
+## obelisk squeeze
+
+Read text from stdin and remove boilerplate:
+
+- ANSI escape codes
+- Progress bars
+- Repeated/duplicate lines
+- Blank-line runs
+- Opaque binary blobs
 
 ```bash
 journalctl -n 5000 | obelisk squeeze
 cat long.log | obelisk squeeze
 ```
 
-Use this when you already have text and want to compact it before pasting into an agent.
+**Use for:** compacting logs, journal output, or any verbose text before feeding it to an agent.
 
-## `obelisk terse [level]`
+**Flags:** none (reads stdin only).
 
-Compacts prose from stdin while leaving code blocks alone.
+---
+
+## obelisk terse
+
+Compact prose from stdin while leaving code blocks intact. Supports compression levels:
 
 ```bash
-cat response.md | obelisk terse
-cat response.md | obelisk terse lite
-cat response.md | obelisk terse full
-cat response.md | obelisk terse ultra
+cat response.md | obelisk terse        # lite (default)
+cat response.md | obelisk terse lite   # conservative
+cat response.md | obelisk terse full   # aggressive
+cat response.md | obelisk terse ultra  # maximum
 ```
 
-Useful for trimming long assistant replies, planning notes, or handoff text.
+**Use for:** trimming long assistant replies, planning notes, or handoff documents.
 
-## `obelisk outline <file>`
+**How levels differ:** `lite` removes only the weakest filler words; `full` condenses sentences; `ultra` shortens aggressively while preserving meaning and all code blocks.
 
-Prints symbols and line ranges for a source file.
+---
+
+## obelisk outline
+
+Print symbols (functions, structs, modules) and their line ranges for a source file. Languages supported: Rust, TypeScript/JavaScript, Python, Go, and others with standard syntax patterns.
 
 ```bash
 obelisk outline src/main.rs
 obelisk outline app/server.ts
+obelisk outline src/commands.py
 ```
 
-Use this before reading large files. Agents should inspect outlines first, then ask for specific symbols.
+**Use for:** understanding file structure before reading the full file. Agents should inspect outlines first, then retrieve specific symbols.
 
-## `obelisk symbol <file> <name>`
+---
 
-Prints only one function/class/symbol from a file.
+## obelisk symbol
+
+Print only one named function, class, or symbol from a source file. This is one of Obelisk's biggest token wins — one function instead of a whole file.
 
 ```bash
 obelisk symbol src/main.rs run
 obelisk symbol src/symbols.rs parse
+obelisk symbol src/commands.py handle_install
 ```
 
-This is one of Obelisk's biggest token wins: one function instead of a whole file.
+**Use for:** targeted code retrieval when you know the symbol name.
 
-## `obelisk pack`
+---
 
-Builds a model-agnostic, token-budgeted context bundle.
+## obelisk pack
+
+Build a provider-neutral, token-budgeted context bundle from files, directories, diffs, history, system files, and optional tool schema JSON.
 
 ```bash
+# Minimal
 obelisk pack --budget 12000 --diff --dir src --file README.md
-```
 
-Common full example:
-
-```bash
+# Full
 obelisk pack \
   --budget 12000 \
   --system AGENTS.md \
@@ -113,80 +160,117 @@ obelisk pack \
   --out .obelisk/context.md
 ```
 
-Flags:
+### Flags
 
-| Flag | Meaning |
-|---|---|
-| `--budget <tokens>` | Approximate provider-neutral token budget. |
-| `--system <file>` | Stable instruction/context file. Repeatable. |
-| `--history <file>` | Chat/session history file to compact. Repeatable. |
-| `--diff` | Include current git stat/name-only/patch if available. |
-| `--dir <path>` | Include a directory map without reading every file. Repeatable. |
-| `--file <path>` | Include or outline an explicit file. Repeatable. |
-| `--tools <json>` | Compact a tool-schema JSON file into names/descriptions. |
-| `--out <file>` | Write pack output to disk instead of stdout. |
+| Flag | Type | Default | Description |
+|------|------|---------|-------------|
+| `--budget` | integer | 12000 | Approximate provider-neutral token budget |
+| `--system` | string (repeatable) | — | Stable instruction/context file |
+| `--history` | string (repeatable) | — | Chat/session history file to compact |
+| `--diff` | boolean | false | Include current git stat/name-only/patch |
+| `--dir` | string (repeatable) | — | Directory map (not full content) |
+| `--file` | string (repeatable) | — | Explicit file to include or outline |
+| `--tools` | string | — | Tool schema JSON file to compact |
+| `--out` | string | — | Write output to file instead of stdout |
 
-`pack` is deliberately not tied to Claude, GPT, Bedrock, OpenRouter, or any other provider. Exact billing counters can wrap the packed output later. The core stays model-agnostic because per-model pack templates are how maintenance gets fleas.
+> **Note:** `pack` is deliberately model-agnostic. No separate commands for Claude, GPT, Bedrock, or OpenRouter. Provider-specific counters can wrap the output — the core stays provider-neutral.
 
-## `obelisk marker`
+---
 
-Manages compact named resume points.
+## obelisk marker
 
-Common pattern:
+Manage compact named resume points — human-curated state for agents to resume from without replaying an entire session.
 
+```bash
+obelisk marker save plan           # save from stdin with given name
+obelisk marker get plan            # retrieve a named marker
+obelisk marker list                # list all markers
+obelisk marker delete plan         # delete a marker
+```
+
+**Pattern:**
 ```bash
 echo "Current plan and decisions..." | obelisk marker save plan
 obelisk marker get plan
-obelisk marker list
-obelisk marker delete plan
 ```
 
-Use markers for human-curated state you want an agent to resume from without replaying an entire session.
+---
 
-## `obelisk checkpoint [label]`
+## obelisk checkpoint
 
-Stores a full session snapshot from stdin and prints a restore handle.
+Store a full session snapshot from stdin and print a restore handle.
 
 ```bash
 cat session.md | obelisk checkpoint session
+cat session.md | obelisk checkpoint "code-review-2026-07"
 ```
 
-Use checkpoints when you want a reversible full-state handoff.
+**Use for:** reversible full-state handoff. The printed handle can be passed to `obelisk restore`.
 
-## `obelisk restore <handle>`
+---
 
-Restores a compressed original, checkpoint, or stashed full section.
+## obelisk restore
+
+Restore a compressed original, checkpoint, or stashed full section by handle.
 
 ```bash
 obelisk restore 7f3a1b2c4d5e
 ```
 
-Use restore only when the compressed view is not enough.
+**Use for:** recovering full content when the compressed view is insufficient.
 
-## `obelisk stats`
+**Common failure modes:**
+- Handle was garbage-collected (check `obelisk gc` history)
+- Handle from another machine or user
+- Content was never stashed (compression was cheaper than storing)
 
-Shows token accounting across layers.
+---
+
+## obelisk serve
+
+Run a local proxy for model API traffic with token accounting.
+
+```bash
+obelisk serve --port 6767 --upstream https://api.anthropic.com
+```
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port` | 6767 | Local port to bind |
+| `--upstream` | `https://api.anthropic.com` | Upstream API endpoint |
+
+**Current role:** proxying and token accounting. Deeper request-body optimization is a future direction.
+
+---
+
+## obelisk stats
+
+Show token savings across all compression layers.
 
 ```bash
 obelisk stats
 ```
 
-Use it to check whether Obelisk is actually saving tokens or just giving you a warm dashboard hug.
+**Use for:** checking whether Obelisk is actually saving tokens. Shows per-layer breakdown and aggregate savings.
 
-## `obelisk gc [days]`
+---
 
-Deletes old reversible blobs from the ledger. Markers and checkpoints are kept.
+## obelisk gc
+
+Evict reversible blobs older than N days from the ledger. Markers and checkpoints are preserved.
 
 ```bash
-obelisk gc 14
-obelisk gc 30
+obelisk gc 14     # evict blobs > 14 days
+obelisk gc 30     # evict blobs > 30 days
 ```
 
-Use this when the local ledger grows too large.
+**Use for:** reclaiming disk space when the local ledger grows too large.
 
-## `obelisk install <agent>`
+---
 
-Wires Obelisk into an agent.
+## obelisk install
+
+Wire Obelisk into a supported AI coding agent.
 
 ```bash
 obelisk install claude
@@ -197,38 +281,54 @@ obelisk install openclaw
 obelisk install cline
 ```
 
-See [Agent integrations](AGENT_INTEGRATIONS.md) for details.
+**Supported agents:**
 
-## `obelisk hook <agent>`
+| Agent | Hook Type | Notes |
+|-------|-----------|-------|
+| Claude Code | `PreToolUse` Bash hook | Rewrites eligible commands |
+| Codex | Shell tool hook | Accepts multiple tool-name shapes |
+| OpenCode | Plugin file | Writes to OpenCode config path |
+| Hermes | Awareness + plugin | Also supports the Hermes plugin package |
+| OpenClaw | Awareness rules | Guidance-style integration |
+| Cline | `.clinerules` guidance | No global shell hook |
 
-Internal command used by agent hook integrations. You normally do not run it by hand.
+**After install:** restart the agent. See [Agent Integrations](AGENT_INTEGRATIONS.md) for details.
+
+---
+
+## obelisk hook
+
+Internal command used by agent hook integrations. Reads hook JSON from stdin and emits the agent-specific hook response.
 
 ```bash
 obelisk hook claude
 obelisk hook codex
 ```
 
-It reads hook JSON from stdin and emits the agent-specific hook response.
+> **Note:** This is an internal command — normally invoked by the agent's hook system, not run by hand.
 
-## `obelisk serve`
+---
 
-Runs a local proxy for model API traffic.
+## obelisk learn
 
-```bash
-obelisk serve --port 6767 --upstream https://api.anthropic.com
-```
-
-Current role: proxying and token accounting. Treat deeper request-body optimisation as a future direction unless implemented in code.
-
-## `obelisk learn`
-
-Controls the usage-triggered self-improvement loop.
+Control the usage-triggered self-improvement loop.
 
 ```bash
-obelisk learn status
-obelisk learn gaps
-obelisk learn enable /path/to/obelisk --threshold 15
-obelisk learn disable
+obelisk learn status                                            # show enabled/disabled + pending gaps
+obelisk learn gaps                                              # dump pending gaps as JSON
+obelisk learn enable /path/to/obelisk --threshold 15            # enable with gap threshold
+obelisk learn disable                                           # disable
 ```
 
-Read [Self-improvement](SELF_IMPROVEMENT.md) before enabling it. Current behavior can commit and push to `main` after passing gates, which is not something you casually enable like dark mode.
+| Subcommand | Description |
+|------------|-------------|
+| `status` | Show whether learning is enabled and how many gaps are pending |
+| `gaps` | Dump pending gaps as JSON (consumed by `scripts/self-improve.sh`) |
+| `enable` | Enable the loop for a repo (must contain `scripts/self-improve.sh`) |
+| `disable` | Disable the loop |
+
+> ⚠️ **Warning:** The current self-improvement script can commit and push to `main`. Read [SELF_IMPROVEMENT.md](SELF_IMPROVEMENT.md) before enabling.
+
+---
+
+<p align="center"><a href="./README.md">← Documentation Index</a> · <a href="../README.md">Back to README</a></p>

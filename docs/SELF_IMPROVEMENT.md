@@ -1,49 +1,63 @@
-# Self-improvement
+<p align="center">
+  <a href="./README.md"><img src="https://img.shields.io/badge/docs-self--improvement-informational?style=flat-square" alt="Self-Improvement"></a>
+  <a href="../README.md"><img src="https://img.shields.io/badge/←%20back-readme-blue?style=flat-square" alt="Back"></a>
+</p>
 
-Obelisk has an optional usage-triggered self-improvement loop. It watches real usage gaps, asks an agent to make one minimal fix, gates the result on Rust build/tests, and can commit the result.
+# Self-Improvement
 
-Read this before enabling it. Seriously. This is the part where a shell script can ask an agent to edit your repo. Very futuristic, in the same way a chainsaw is technically a productivity tool.
+**Obelisk has an optional usage-triggered self-improvement loop.** It watches real usage gaps, asks an agent to make one minimal fix, gates the result on Rust build/tests, and can commit the result.
+
+> ⚠️ **Read this before enabling.** The current checked-in script can push directly to `main` after passing gates. Passing tests proves nothing about correctness, security, or architectural soundness — it only proves the tests noticed nothing.
+
+---
+
+## Table of Contents
+
+- [Status](#status)
+- [What Is a Gap?](#what-is-a-gap)
+- [Current Implementation Flow](#current-implementation-flow)
+- [Known Issues](#known-issues)
+- [Safer Target Behavior](#safer-target-behavior)
+- [Recommended Safeguards](#recommended-safeguards)
+- [How to Inspect Gaps](#how-to-inspect-gaps)
+- [Good vs Bad Candidates](#good-vs-bad-candidates)
+- [Disable Immediately](#disable-immediately)
+- [Future Improvements](#future-improvements)
+
+---
 
 ## Status
 
-Self-improvement is disabled by default.
-
-Check status:
+Self-improvement is **disabled by default**.
 
 ```bash
+# Check status
 obelisk learn status
-```
 
-Enable:
-
-```bash
+# Enable (read this doc first!)
 obelisk learn enable /path/to/obelisk --threshold 15
-```
 
-Disable:
-
-```bash
+# Disable
 obelisk learn disable
-```
 
-Show pending gaps:
-
-```bash
+# Show pending gaps
 obelisk learn gaps
 ```
 
-## What is a gap?
+---
 
-A gap is a sign that Obelisk lacks coverage or correctness in some area.
+## What Is a Gap?
 
-Current examples:
+A gap is a signal that Obelisk lacks coverage or correctness in some area. Current gap types:
 
-- `no_filter` — a command was routed through Obelisk but has no dedicated filter.
-- `restore_miss` — a restore handle could not be found.
+| Gap Type | Meaning |
+|----------|---------|
+| `no_filter` | A command was routed through Obelisk but has no dedicated filter |
+| `restore_miss` | A restore handle could not be found |
 
-A common gap path is:
+**Example gap path:**
 
-```text
+```
 obelisk run some-tool
 ↓
 no dedicated filter exists
@@ -53,76 +67,72 @@ Obelisk records `no_filter` for `some-tool`
 if enough gaps pile up, self-improvement may trigger
 ```
 
-## Current implementation flow
+---
+
+## Current Implementation Flow
 
 The current script is `scripts/self-improve.sh`.
 
-Current behavior:
-
-1. Refuses to run on a dirty working tree.
-2. Fetches `origin/main`.
-3. Fast-forwards local `main` only if possible.
-4. Reads pending gaps with `obelisk learn gaps`.
-5. Calls Claude Code headless with a prompt to fix exactly one highest-count gap.
-6. Runs `cargo build --release`.
-7. Runs `cargo test`.
-8. If build/tests pass, commits and pushes to `main`.
-9. If build/tests fail, reverts the working tree.
-
-## Important safety warning
-
-The current checked-in script can push directly to `main` after passing gates.
-
-That is powerful, but risky. Passing tests does not prove the patch is correct, secure, minimal, or architecturally sane. It only proves the tests noticed nothing. Tests, bless them, are not omniscient.
-
-Recommended operating rule:
-
-```text
-Do not enable self-improvement on a repo unless you are comfortable with the current script's autonomy model.
+```mermaid
+flowchart LR
+    A[Read pending gaps] --> B[Claude Code headless]
+    B --> C[Fix highest-count gap]
+    C --> D[cargo build --release]
+    D --> E[cargo test]
+    E --> F{Build + tests pass?}
+    F -->|Yes| G[Commit and push to main]
+    F -->|No| H[Revert working tree]
 ```
 
-## Known issue in current flow
+1. Refuses to run on a dirty working tree
+2. Fetches `origin/main`
+3. Fast-forwards local `main` only if possible
+4. Reads pending gaps with `obelisk learn gaps`
+5. Calls Claude Code headless with a prompt to fix exactly one highest-count gap
+6. Runs `cargo build --release`
+7. Runs `cargo test`
+8. If build/tests pass, commits and pushes to `main`
+9. If build/tests fail, reverts the working tree
 
-There is a sequencing problem in the current design: the Rust side can mark gaps as triggered before the shell script reads them. If that happens, the script may see no pending gaps.
+---
 
-Recommended v2 design:
+## Known Issues
 
-1. Generate a frozen gap snapshot first.
-2. Pass that snapshot file to the script.
-3. Mark gaps as triggered only after the snapshot exists.
-4. Have the script read the snapshot, not the live pending queue.
-5. Push a review branch instead of `main`.
-6. Open a PR when `gh` is available.
+### Sequencing problem
 
-A v2 patch has been drafted separately. Merge that before treating the self-improvement loop as production-safe.
+The Rust side can mark gaps as triggered before the shell script reads them. If that happens, the script sees no pending gaps and does nothing.
 
-## Safer target behavior
+**Recommended v2 fix:**
+1. Generate a frozen gap snapshot first
+2. Pass that snapshot file to the script
+3. Mark gaps as triggered only after the snapshot exists
+4. Have the script read the snapshot, not the live pending queue
+5. Push a review branch instead of `main`
+6. Open a PR when `gh` is available
 
-The safer loop should be:
+---
 
-```text
-real usage gaps
-↓
-frozen gap report with representative samples
-↓
-agent fixes one highest-count gap
-↓
-cargo build --release
-↓
-cargo test
-↓
-commit to self-improve/<timestamp>-<gap>
-↓
-push branch
-↓
-open PR
-↓
-human review
+## Safer Target Behavior
+
+The safer loop should look like:
+
+```mermaid
+flowchart LR
+    A[Real usage gaps] --> B[Frozen gap report + samples]
+    B --> C[Agent fixes one gap]
+    C --> D[cargo build]
+    D --> E[cargo test]
+    E --> F[Commit to branch]
+    F --> G[Push branch]
+    G --> H[Open PR]
+    H --> I[Human review]
 ```
 
-That is still autonomous, but it leaves an audit trail and review step. A tiny concession to sanity.
+That is still autonomous, but it leaves an audit trail and a review step.
 
-## Recommended local safeguards
+---
+
+## Recommended Safeguards
 
 Before enabling:
 
@@ -133,7 +143,7 @@ cargo test
 cargo build --release
 ```
 
-Make sure your local `main` tracks origin cleanly:
+Make sure local `main` tracks origin cleanly:
 
 ```bash
 git checkout main
@@ -155,59 +165,71 @@ obelisk learn enable /path/to/obelisk --threshold 50
 
 Lower it later only after reviewing several runs.
 
-## How to inspect gaps
+---
+
+## How to Inspect Gaps
 
 ```bash
 obelisk learn status
 obelisk learn gaps
 ```
 
-The current compact gaps view groups by kind/program/count. The safer v2 design should include representative samples so the repair agent can write filters from real output instead of just a count.
+The current compact gaps view groups by kind, program, and count. A v2 design should include representative samples so the repair agent can write filters from real output instead of just a count.
 
-## What self-improvement should fix
+---
 
-Good candidates:
+## Good vs Bad Candidates
 
-- missing command filters
-- overly noisy output for known tools
-- restore miss bugs
-- parser edge cases with tests
-- small compression correctness issues
+### Good candidates for self-improvement
 
-Bad candidates:
+- Missing command filters
+- Overly noisy output for known tools
+- Restore miss bugs
+- Parser edge cases with tests
+- Small compression correctness issues
 
-- major architecture refactors
-- dependency rewrites
-- provider-specific model logic
-- secret handling
-- deployment automation
-- anything requiring product judgement
+### Bad candidates (do not auto-fix)
 
-## Disable immediately
+- Major architecture refactors
+- Dependency rewrites
+- Provider-specific model logic
+- Secret handling
+- Deployment automation
+- Anything requiring product judgement
+
+---
+
+## Disable Immediately
 
 ```bash
 obelisk learn disable
 ```
 
-If a run is active, remove the lock only after checking that no `self-improve.sh` process is running:
+If a run is active, remove the lock only after confirming no `self-improve.sh` process is running:
 
 ```bash
 ps aux | grep self-improve.sh | grep -v grep
 rm -f ~/.local/share/obelisk/self-improve.lock
 ```
 
-The exact data directory can vary by platform.
+> The exact data directory can vary by platform.
 
-## Future improvements
+---
 
-Recommended next upgrades:
+## Future Improvements
 
-- frozen gap snapshots
-- representative gap samples
-- branch/PR workflow instead of direct `main` pushes
-- dry-run mode
-- allowlist of files the agent may edit
-- maximum diff size
-- GitHub Actions validation before review
-- automatic issue creation for repeated failures
-- better gap taxonomy: `bad_filter`, `overcompressed`, `undercompressed`, `parse_miss`, `restore_miss`, `agent_hook_error`
+| Priority | Improvement |
+|----------|-------------|
+| High | Frozen gap snapshots |
+| High | Representative gap samples |
+| High | Branch/PR workflow instead of `main` pushes |
+| Medium | Dry-run mode |
+| Medium | Allowlist of editable files |
+| Medium | Maximum diff size enforcement |
+| Low | GitHub Actions validation before review |
+| Low | Automatic issue creation for repeated failures |
+| Low | Better gap taxonomy: `bad_filter`, `overcompressed`, `undercompressed`, `parse_miss`, `restore_miss`, `agent_hook_error` |
+
+---
+
+<p align="center"><a href="./README.md">← Documentation Index</a> · <a href="../README.md">Back to README</a></p>

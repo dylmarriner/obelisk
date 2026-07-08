@@ -1,50 +1,47 @@
-# Obelisk Paperclip plugin
+<p align="center">
+  <a href="../../README.md"><img src="https://img.shields.io/badge/plugin-paperclip--obelisk-orange?style=flat-square" alt="Paperclip Plugin"></a>
+  <a href="../../docs/README.md"><img src="https://img.shields.io/badge/docs-paperclip%20plugin-informational?style=flat-square" alt="Plugin Docs"></a>
+</p>
 
-This package is a Paperclip plugin prototype that exposes Obelisk as a context firewall for Paperclip-managed agents.
+# Obelisk Paperclip Plugin
 
-Paperclip is a control plane for agent teams. Its expensive context surfaces are task starts and recurring heartbeats: company goals, project state, issue history, comments, prior run logs, skills, and workspace context can be re-sent over and over. This plugin focuses on reducing that repeated context.
+**Prototype: Obelisk as a context firewall for Paperclip-managed agent teams.** Targets the expensive context surfaces in agent orchestration — repeated task starts and recurring heartbeats.
+
+---
+
+## Table of Contents
+
+- [Status](#status)
+- [What It Does](#what-it-does)
+- [Build](#build)
+- [Requirements](#requirements)
+- [Tools](#tools)
+- [Capabilities Requested](#capabilities-requested)
+- [Integration Direction](#integration-direction)
+- [Safety](#safety)
+
+---
 
 ## Status
 
-Prototype / early integration.
+**Prototype / early integration.** Paperclip's full plugin system is documented as a post-V1 target architecture. This package follows that target shape where possible:
 
-Paperclip's full plugin system is documented as a post-V1 target architecture with current implementation caveats. This package follows that target shape where possible:
-
-```text
-package.json -> paperclipPlugin manifest/worker/ui keys
-src/manifest.ts -> plugin manifest, tools, capabilities, UI slots
-src/worker.ts -> JSON-RPC-ish worker entrypoint
-src/tools.ts -> agent tool handlers
-src/obelisk.ts -> Obelisk process helpers and context hashing
-src/ui/index.tsx -> dashboard/detail/settings placeholders
+```
+package.json             → paperclipPlugin manifest/worker/ui keys
+src/manifest.ts          → plugin manifest, tools, capabilities, UI slots
+src/worker.ts            → JSON-RPC-ish worker entrypoint
+src/tools.ts             → agent tool handlers
+src/obelisk.ts           → Obelisk process helpers and context hashing
+src/ui/index.tsx         → dashboard/detail/settings placeholders
 ```
 
-## What it does
+---
 
-Agent tools:
+## What It Does
 
-```text
-task-pack
-heartbeat-pack
-compress-run-output
-restore-context
-context-diff
-savings-report
+Paperclip heartbeats can become expensive when each run reloads the same task, project, and company context. Obelisk helps Paperclip send:
+
 ```
-
-UI slots:
-
-```text
-ObeliskSavingsWidget
-ObeliskRunDetailTab
-ObeliskSettingsPage
-```
-
-## Why this exists
-
-Paperclip heartbeats can become expensive when each run reloads the same task/project/company context. Obelisk should help Paperclip send:
-
-```text
 compact task capsule
 + changed events since last heartbeat
 + relevant workspace diff
@@ -53,9 +50,11 @@ compact task capsule
 
 instead of:
 
-```text
-everything again, forever, until the token bill becomes a small weather event
 ```
+everything again, forever
+```
+
+---
 
 ## Build
 
@@ -66,11 +65,17 @@ npm run check
 npm run build
 ```
 
+---
+
 ## Requirements
 
-- Node.js with TypeScript build tooling.
-- Paperclip plugin runtime support.
-- Obelisk installed on PATH, or configured through plugin instance config:
+| Dependency | Purpose |
+|-----------|---------|
+| Node.js | TypeScript build tooling |
+| Paperclip plugin runtime | Plugin host |
+| Obelisk on PATH | Core engine |
+
+**Optional configuration:**
 
 ```json
 {
@@ -81,60 +86,36 @@ npm run build
 }
 ```
 
-## Tool behavior
+---
 
-### `task-pack`
+## Tools
 
-Builds a compact task-start context pack. With a `workspacePath`, it writes the Paperclip task context to a temporary Markdown file and calls:
+| Tool | Description |
+|------|-------------|
+| `task-pack` | Build a compact task-start context pack using `obelisk pack` |
+| `heartbeat-pack` | Delta-based heartbeat pack: context hashes, changed events, workspace diff |
+| `compress-run-output` | Squeeze large Paperclip run logs/tool output |
+| `restore-context` | Restore via `obelisk restore <handle>` |
+| `context-diff` | Stable hashes and changed-key list for Paperclip context objects |
+| `savings-report` | Token savings via `obelisk stats` |
+
+### Tool Details
+
+**`task-pack`** — With a `workspacePath`, writes task context to a temp file and calls:
 
 ```bash
 obelisk pack --budget <budget> --system <temp-context> --diff --dir <dir> --file <file>
 ```
 
-Without a workspace path, it falls back to `obelisk squeeze` over the generated context Markdown.
+Without workspace path, falls back to `obelisk squeeze` over the context Markdown.
 
-### `heartbeat-pack`
+**`heartbeat-pack`** — The key token saver. Sends context hash, previous hash, changed event count, changed events, and optional workspace diff/files/dirs. Heartbeats should be deltas, not full bureaucracy.
 
-Builds a compact heartbeat pack with:
+---
 
-```text
-current context hash
-previous context hash
-changed event count
-changed events
-candidate Paperclip context
-optional workspace diff/files/dirs
+## Capabilities Requested
+
 ```
-
-This is the key token saver. Heartbeats should be deltas, not the full bureaucratic ancestry of the robot employee.
-
-### `compress-run-output`
-
-Runs large Paperclip run logs/tool outputs through `obelisk squeeze`.
-
-### `restore-context`
-
-Runs:
-
-```bash
-obelisk restore <handle>
-```
-
-### `context-diff`
-
-Computes stable hashes and a shallow changed-key list for Paperclip context objects.
-
-### `savings-report`
-
-Runs:
-
-```bash
-obelisk stats
-```
-
-## Capabilities requested
-
-```text
 agent.tools.register
 project.workspaces.read
 plugin.state.read
@@ -145,19 +126,25 @@ ui.detailTab.register
 ui.page.register
 ```
 
-## Integration direction
+---
+
+## Integration Direction
 
 The production version should eventually:
 
-1. Store last heartbeat hashes in Paperclip plugin state.
-2. Save per-agent/per-project savings metrics.
-3. Add a real dashboard widget through Paperclip's plugin UI bridge.
-4. Attach Obelisk summaries to run logs.
-5. Add settings for redaction and command-compression policy.
-6. Add tests against Paperclip's official plugin SDK once stable.
+1. Store last heartbeat hashes in Paperclip plugin state
+2. Save per-agent/per-project savings metrics
+3. Add a real dashboard widget through Paperclip's plugin UI bridge
+4. Attach Obelisk summaries to run logs
+5. Add settings for redaction and command-compression policy
+6. Add tests against Paperclip's official plugin SDK once stable
+
+---
 
 ## Safety
 
-This plugin does not directly run arbitrary user shell commands. It focuses on context packing, output squeezing, restore handles, and savings stats.
+This plugin does not directly run arbitrary user shell commands. It focuses on context packing, output squeezing, restore handles, and savings stats. For command execution, use explicit Paperclip governance and Obelisk's safe command policy.
 
-For command execution, use explicit Paperclip governance and Obelisk's own safe command policy. Do not accidentally turn a cost-saving plugin into an unattended terminal with delusions of competence.
+---
+
+<p align="center"><a href="../../README.md">← Back to README</a></p>

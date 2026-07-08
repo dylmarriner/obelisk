@@ -5,7 +5,7 @@
 
 # Obelisk Hermes Plugin
 
-**Unified token optimization for Hermes Agent.** Merges Obelisk's command-output compression tools with Token Optimizer's per-turn token tracking, context-fill nudges, and session rollup.
+**Unified token optimization for Hermes Agent.** Combines command-output compression with per-turn token tracking, context-fill nudges, and session rollup.
 
 ---
 
@@ -15,7 +15,7 @@
 - [Requirements](#requirements)
 - [Installation](#installation)
 - [Obelisk Tools](#obelisk-tools)
-- [Token Optimizer Hooks](#token-optimizer-hooks)
+- [Usage Tracking](#usage-tracking)
 - [Slash Commands](#slash-commands)
 - [CLI Commands](#cli-commands)
 - [Bundled Skills](#bundled-skills)
@@ -40,24 +40,21 @@
 | `obelisk_stats` | Show token savings across Obelisk layers |
 | `obelisk_doctor` | Verify Obelisk installation |
 
-### Token Optimizer (usage tracking)
+### Usage tracking
 
 | Feature | Description |
 |---------|-------------|
 | **Context nudge** | Proactively warns when context fill crosses ~70%, once per session |
 | **Per-turn tally** | Accumulates input/output/cache/reasoning tokens per session |
-| **Session rollup** | Writes session data into the shared Token Optimizer `trends.db` for dashboard visibility |
+| **Session rollup** | Writes session data into `trends.db` for dashboard visibility |
 | **`/obelisk-token`** | Slash command showing token and cost summary for recent sessions |
-| **`hermes obelisk-token`** | CLI subcommand to open the Token Optimizer dashboard |
+| **`hermes obelisk-token`** | CLI subcommand to open the usage dashboard |
 
 ---
 
 ## Requirements
 
-| Dependency | Location | Purpose |
-|-----------|----------|---------|
-| **Obelisk binary** | `~/.local/bin/obelisk` (on PATH) | Core engine |
-| **Token Optimizer repo** | `~/Documents/token-optimizer/` | `measure.py` engine for rollup and dashboard |
+**Requirements:** `obelisk` binary on PATH (`~/.local/bin/obelisk`)
 
 ---
 
@@ -73,13 +70,7 @@ export PATH="$HOME/.local/bin:$PATH"
 obelisk doctor
 ```
 
-### 2. (Optional) Clone Token Optimizer for dashboard/rollup
-
-```bash
-git clone https://github.com/alexgreensh/token-optimizer.git ~/Documents/token-optimizer
-```
-
-### 3. Install the plugin
+### 2. Install the plugin
 
 ```bash
 mkdir -p ~/.hermes/plugins

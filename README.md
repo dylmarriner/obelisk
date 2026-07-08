@@ -112,7 +112,7 @@ export PATH="$HOME/.local/bin:$PATH"
 obelisk doctor
 ```
 
-> **Full setup guide:** [docs/SETUP.md](docs/SETUP.md) — includes PATH persistence, agent hooks, smoke tests, and Token Optimizer setup.
+> **Full setup guide:** [docs/SETUP.md](docs/SETUP.md) — includes PATH persistence, agent hooks, and smoke tests.
 
 ---
 
@@ -237,7 +237,7 @@ claude --plugin-dir ./plugins/claude-code-obelisk
 
 ### Hermes Plugin
 
-Combines Obelisk's command-output compression with Token Optimizer's per-turn token tracking, context-fill nudges, and session rollup.
+Combines command-output compression with per-turn token tracking, context-fill nudges, and session rollup.
 
 ```bash
 # Install from repository root
@@ -258,10 +258,10 @@ hermes plugins enable obelisk
 | `obelisk_stats` | Token savings across layers |
 | `obelisk_doctor` | Installation verification |
 
-**Token Optimizer integration:**
+**Usage tracking:**
 - **Context nudge** — warns at ~70%+ context fill, once per session
 - **Per-turn tally** — accumulates input/output/cache/reasoning tokens per session
-- **Session rollup** — writes to Token Optimizer `trends.db` for dashboard visibility
+- **Session rollup** — writes to `trends.db` for dashboard visibility
 
 **Slash commands:** `/obelisk`, `/obelisk-stats`, `/obelisk-doctor`, `/obelisk-token`
 **CLI commands:** `hermes obelisk-doctor`, `hermes obelisk-stats`, `hermes obelisk-token`
@@ -269,7 +269,6 @@ hermes plugins enable obelisk
 
 **Requirements:**
 - `obelisk` binary on PATH (`~/.local/bin/obelisk`)
-- Token Optimizer repo at `~/Documents/token-optimizer/` (for dashboard/rollup)
 
 **Plugin docs:** [plugins/hermes-obelisk/README.md](plugins/hermes-obelisk/README.md)
 
@@ -330,13 +329,13 @@ grep -Rni "obelisk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 
 | Resource | Description |
 |----------|-------------|
 | [Documentation Index](docs/README.md) | Overview of all docs |
-| [Setup Guide](docs/SETUP.md) | Install, build, PATH, agent hooks, Token Optimizer |
+| [Setup Guide](docs/SETUP.md) | Install, build, PATH, agent hooks |
 | [Command Reference](docs/COMMANDS.md) | Every command with examples and flags |
 | [Agent Integrations](docs/AGENT_INTEGRATIONS.md) | Claude Code, Codex, Hermes, OpenCode, OpenClaw, Cline |
 | [Self-Improvement](docs/SELF_IMPROVEMENT.md) | Learning loop risks and operation |
 | [Troubleshooting](docs/TROUBLESHOOTING.md) | Common failures and fixes |
 | [Claude Code Plugin](plugins/claude-code-obelisk/README.md) | Plugin README |
-| [Hermes Plugin](plugins/hermes-obelisk/README.md) | Plugin README (includes Token Optimizer) |
+| [Hermes Plugin](plugins/hermes-obelisk/README.md) | Plugin README (includes usage tracking) |
 | [Paperclip Plugin](plugins/paperclip-obelisk/README.md) | Plugin README |
 
 ---

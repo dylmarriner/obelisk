@@ -33,7 +33,6 @@ grep -Rni "obelisk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 
 - [Build fails](#build-fails)
 - [Tests fail after local changes](#tests-fail-after-local-changes)
 - [Self-improvement did nothing](#self-improvement-did-nothing)
-- [Token Optimizer hooks not working](#token-optimizer-hooks-not-working-hermes-plugin)
 - [Nuclear reinstall](#nuclear-reinstall)
 
 ---
@@ -276,38 +275,6 @@ tail -n 200 .self-improve.log
 > **See also:** [Self-Improvement docs](SELF_IMPROVEMENT.md) for safety and design caveats.
 
 ---
-
-## Token Optimizer hooks not working (Hermes plugin)
-
-The Token Optimizer features (context nudge, per-turn tally, dashboard) are optional and require an external repo.
-
-### Check the bridge
-
-```bash
-cd ~/.hermes/plugins/obelisk
-python3 hermes_hook_bridge.py
-```
-
-If `measure.py not found`:
-
-```bash
-git clone https://github.com/alexgreensh/token-optimizer.git ~/Documents/token-optimizer
-```
-
-### Check the locator file
-
-```bash
-cat ~/.hermes/plugins/obelisk/measure-path
-```
-
-If the locator is stale or points to a moved checkout, update it to the correct path or remove it so the bridge falls back to the standard location (`~/Documents/token-optimizer/scripts/measure.py`).
-
-### Nudge not appearing
-
-The nudge fires at most **once per session** at ~70%+ fill. If you see no nudge:
-- It may already have fired earlier in the session
-- The session may not have crossed the threshold
-- Run a longer session or fill context to trigger it
 
 ---
 

@@ -1,11 +1,7 @@
 """Obelisk Hermes plugin — unified token optimization.
 
-Merges Obelisk's command-output compression tools with Token Optimizer's
-per-turn token tracking, context-fill nudges, and session rollup.
-
-Standing on the shoulders of:
-  - Obelisk (Rust CLI for compact, reversible command output)
-  - Token Optimizer (Alex Greenshpun's per-platform usage engine)
+Combines command-output compression with per-turn token tracking,
+context-fill nudges, and session rollup.
 
 Plugin layout:
   ~/.hermes/plugins/obelisk/
@@ -40,7 +36,7 @@ logger = logging.getLogger(__name__)
 PLUGIN_ROOT = Path(__file__).parent.resolve()
 
 # ---------------------------------------------------------------------------
-# Token Optimizer integration: resolve sibling modules
+# Usage tracking integration: resolve sibling modules
 # ---------------------------------------------------------------------------
 
 _PLUGIN_DIR_STR = str(PLUGIN_ROOT)
@@ -260,7 +256,7 @@ def on_session_end(**kwargs: Any) -> None:
 
 
 # ---------------------------------------------------------------------------
-# TO Slash command: /obelisk-token — token/cost summary
+# Slash command: /obelisk-token — token/cost summary
 # ---------------------------------------------------------------------------
 
 def _handle_token_command(args: str = "", **kwargs: Any) -> str:
@@ -268,7 +264,7 @@ def _handle_token_command(args: str = "", **kwargs: Any) -> str:
     try:
         bridge = _import_bridge()
         if bridge is None:
-            return "[Obelisk] Token bridge not available — ensure token-optimizer repo is cloned at ~/Documents/token-optimizer/"
+            return "[Obelisk] Token tracking bridge not available."
         session_id: str = kwargs.get("session_id") or ""
         result = bridge.run_summary(session_id=session_id)
         return result or "[Obelisk] No session data available yet. Complete a session first."
@@ -278,7 +274,7 @@ def _handle_token_command(args: str = "", **kwargs: Any) -> str:
 
 
 # ---------------------------------------------------------------------------
-# TO CLI command: hermes obelisk-token — open dashboard
+# CLI command: hermes obelisk-token — open dashboard
 # ---------------------------------------------------------------------------
 
 def _setup_cli_token(subparser: Any) -> None:
@@ -335,7 +331,7 @@ def register(ctx) -> None:
     if hasattr(ctx, "register_hook"):
         ctx.register_hook("pre_tool_call", pre_tool_call)
 
-    # --- Token Optimizer hooks ---
+    # --- Usage tracking hooks ---
     if hasattr(ctx, "register_hook"):
         ctx.register_hook("post_api_request", on_post_api_request)
         ctx.register_hook("pre_llm_call", on_pre_llm_call)
@@ -368,7 +364,7 @@ def register(ctx) -> None:
         ctx.register_cli_command("obelisk-doctor", "Check Obelisk installation status", _setup_doctor, _doctor)
         ctx.register_cli_command("obelisk-stats", "Show Obelisk token savings stats", _setup_stats, _stats)
         ctx.register_cli_command("obelisk-token",
-                                f"Open the Token Optimizer dashboard (port {_DASHBOARD_PORT}).",
+                                f"Open the usage dashboard (port {_DASHBOARD_PORT}).",
                                 _setup_cli_token, _handle_cli_token)
 
     # --- Obelisk skills ---

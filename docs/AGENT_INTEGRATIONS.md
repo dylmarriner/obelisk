@@ -148,7 +148,7 @@ grep -Rni "obelisk" ~/.config/opencode 2>/dev/null || true
 
 ## Hermes
 
-### Basic hook installation
+Install:
 
 ```bash
 obelisk install hermes
@@ -166,22 +166,20 @@ grep -Rni "obelisk" ~/.hermes 2>/dev/null || true
 
 **Restart Hermes** after installing.
 
-### Token Optimizer hooks
+### Usage tracking hooks
 
-The Hermes plugin also registers optional Token Optimizer hooks that go beyond command compression:
+The Hermes plugin also registers optional hooks for per-turn token tracking, context-fill nudges, and session rollup:
 
 | Hook | Trigger | What it does |
 |------|---------|-------------|
 | `post_api_request` | After each API call | Accumulates per-turn token usage (input, output, cache, reasoning) |
 | `pre_llm_call` | Before each LLM call | Checks context fill ratio; inserts a one-line nudge when >70% |
-| `on_session_finalize` | Session finalization | Fires rollup to Token Optimizer `trends.db` |
+| `on_session_finalize` | Session finalization | Fires rollup to `trends.db` for dashboard visibility |
 | `on_session_end` | Session end | Same rollup (deduped) |
 
 **Additional slash commands:**
 - `/obelisk-token` — show token/cost summary for recent sessions
-- `hermes obelisk-token` — open the Token Optimizer dashboard
-
-**Requirements:** Token Optimizer repo cloned at `~/Documents/token-optimizer/`
+- `hermes obelisk-token` — open the usage dashboard
 
 ### Hermes plugin package
 
@@ -209,7 +207,7 @@ plugins:
 | Slash commands | `/obelisk`, `/obelisk-stats`, `/obelisk-doctor`, `/obelisk-token` |
 | CLI commands | `hermes obelisk-doctor`, `hermes obelisk-stats`, `hermes obelisk-token` |
 | Skills | `obelisk:pack-context`, `obelisk:inspect-symbol`, `obelisk:compact-output`, `obelisk:restore-context` |
-| Hooks | `pre_tool_call` (command rewrites), Token Optimizer hooks (above) |
+| Hooks | `pre_tool_call` (command rewrites), usage tracking hooks (above) |
 
 **Plugin docs:** [../plugins/hermes-obelisk/README.md](../plugins/hermes-obelisk/README.md)
 

@@ -3,26 +3,26 @@
 This module keeps runtime integration deliberately simple:
 
 - Claude Code stays the default runtime unless another runtime is clearly indicated.
-- Codex activates when CODEX_HOME is set or TOKEN_OPTIMIZER_RUNTIME=codex.
-- Hermes activates when HERMES_HOME is set or TOKEN_OPTIMIZER_RUNTIME=hermes.
+- Codex activates when CODEX_HOME is set or OBELISK_RUNTIME=codex.
+- Hermes activates when HERMES_HOME is set or OBELISK_RUNTIME=hermes.
 - OpenCode activates when an OPENCODE_* env signal or an opencode ancestor process
-  is detected, or TOKEN_OPTIMIZER_RUNTIME=opencode. The ancestor scan reads full
+  is detected, or OBELISK_RUNTIME=opencode. The ancestor scan reads full
   command lines, so OpenCode launched through node/bun (its real launch shape) is
   recognized, not only a bare ``opencode`` binary. OpenCode loads ~/.claude/skills
   by default, so this skill can be invoked from inside OpenCode; detecting it keeps
   the skill from scanning/mutating ~/.claude when the user is actually in OpenCode
   (issue #57). The ancestor signal is evaluated ahead of the Claude plugin-env
   heuristic so a coexisting Claude install on the same host can't shadow it.
-- Copilot activates when COPILOT_HOME or TOKEN_OPTIMIZER_COPILOT_HOME is set, a
-  `copilot` ancestor process is detected, or TOKEN_OPTIMIZER_RUNTIME=copilot.
+- Copilot activates when COPILOT_HOME or OBELISK_COPILOT_HOME is set, a
+  `copilot` ancestor process is detected, or OBELISK_RUNTIME=copilot.
   The Copilot hook bridge always sets the explicit override; the other signals
   are a safety net so the skill never scans/mutates ~/.claude while actually
   running under GitHub Copilot. COPILOT_HOME is Copilot's OWN variable — TO
-  reads it but never asks users to set it (issue #78); TOKEN_OPTIMIZER_COPILOT_HOME
+  reads it but never asks users to set it (issue #78); OBELISK_COPILOT_HOME
   is TO's own collision-free override.
 - Callers can keep legacy variable names while resolving to the correct home.
 
-The goal is to let Token Optimizer share one Python core while platform
+The goal is to let Obelisk share one Python core while platform
 adapters grow feature-by-feature on top of it.
 """
 
@@ -34,7 +34,7 @@ import re
 import sys
 from pathlib import Path
 
-_RUNTIME_OVERRIDE = "TOKEN_OPTIMIZER_RUNTIME"
+_RUNTIME_OVERRIDE = "OBELISK_RUNTIME"
 _RUNTIME_CLAUDE = "claude"
 _RUNTIME_CODEX = "codex"
 _RUNTIME_HERMES = "hermes"
@@ -51,13 +51,13 @@ _CODEX_HOME_ENV = "CODEX_HOME"
 _HERMES_HOME_ENV = "HERMES_HOME"
 # COPILOT_HOME is GitHub Copilot CLI's OWN config variable (GitHub docs: it
 # "replaces the entire ~/.copilot path", and Copilot's session-state/,
-# session.db, events.jsonl all live inside it). Token Optimizer must NOT ask
+# session.db, events.jsonl all live inside it). Obelisk must NOT ask
 # users to set it: a WSL /mnt value set for TO's benefit is also read by the
 # native-Windows Copilot CLI and breaks its own session logging (issue #78).
 # So TO exposes its OWN namespaced override and only READS COPILOT_HOME as a
 # back-compat location hint (with a guardrail warning for /mnt values).
 _COPILOT_HOME_ENV = "COPILOT_HOME"
-_TO_COPILOT_HOME_ENV = "TOKEN_OPTIMIZER_COPILOT_HOME"
+_TO_COPILOT_HOME_ENV = "OBELISK_COPILOT_HOME"
 # Windows profile names under /mnt/c/Users that are never a real user home.
 _WINDOWS_NONUSER_PROFILES = frozenset(
     {"public", "all users", "default", "default user", "windows", "wpsystem"}
@@ -74,7 +74,7 @@ _OPENCODE_ENV_SIGNALS = (
 )
 # Set to a truthy value to skip the (cheap, best-effort) process-tree scan used
 # as a fallback OpenCode signal. Useful in tests/CI and locked-down sandboxes.
-_PROC_SCAN_DISABLE_ENV = "TOKEN_OPTIMIZER_NO_PROC_SCAN"
+_PROC_SCAN_DISABLE_ENV = "OBELISK_NO_PROC_SCAN"
 
 # Warnings printed at most once per process. copilot_home()/_safe_home_from_env
 # can be called several times in a single command (doctor, install, hook fire),
@@ -218,7 +218,7 @@ def _autodetect_wsl_copilot_home(mnt_root: Path | None = None) -> Path | None:
     Returns the resolved Path when EXACTLY ONE Windows profile carrying a
     ``.copilot`` dir is found. Returns ``None`` when zero (caller falls back to
     the default) or when several are found (ambiguous — the caller warns and
-    the user disambiguates with TOKEN_OPTIMIZER_COPILOT_HOME). Never raises.
+    the user disambiguates with OBELISK_COPILOT_HOME). Never raises.
 
     ``mnt_root`` is a test-injection parameter (never set in production).
     """
@@ -264,16 +264,16 @@ def _warn_mnt_copilot_home(raw: str) -> None:
     meaningless on native Windows — makes Copilot relocate its own
     session-state/session.db/events.jsonl into a path that doesn't exist, so it
     silently stops logging. Steer the user to unset it and rely on
-    auto-detection, or to use Token Optimizer's own TOKEN_OPTIMIZER_COPILOT_HOME.
+    auto-detection, or to use obelisk's own OBELISK_COPILOT_HOME.
     """
     if not _looks_like_mnt_path(raw):
         return
     _warn_once(
-        f"[Token Optimizer] Warning: COPILOT_HOME={raw!r} is a WSL /mnt path. "
+        f"[Obelisk] Warning: COPILOT_HOME={raw!r} is a WSL /mnt path. "
         "GitHub Copilot CLI reads COPILOT_HOME too, and a /mnt value breaks its "
         "own session logging on native Windows. Unset COPILOT_HOME (Token "
         "Optimizer auto-detects your Windows Copilot home), or use "
-        "TOKEN_OPTIMIZER_COPILOT_HOME for Token Optimizer only."
+        "OBELISK_COPILOT_HOME for Obelisk only."
     )
 
 
@@ -307,7 +307,7 @@ def _safe_home_from_env(env_var: str, fallback: Path, *, mnt_root: Path | None =
     if mnt_result is not None:
         return mnt_result
     _warn_once(
-        f"[Token Optimizer] Warning: {env_var}={raw_val!r} rejected (not a safe directory). Using default."
+        f"[Obelisk] Warning: {env_var}={raw_val!r} rejected (not a safe directory). Using default."
     )
     return fallback
 
@@ -325,7 +325,7 @@ def _ancestor_in_process_tree(basenames: frozenset) -> bool:
     and the parent chain is walked from this PID upward.
 
     Never raises and never blocks for long: disabled on Windows, behind a short
-    timeout, and skippable via TOKEN_OPTIMIZER_NO_PROC_SCAN.
+    timeout, and skippable via OBELISK_NO_PROC_SCAN.
     """
     if os.environ.get(_PROC_SCAN_DISABLE_ENV, "").strip():
         return False
@@ -419,7 +419,7 @@ def _looks_like_opencode_entrypoint(path_token: str) -> bool:
     mode, so a generic entry filename under an ``opencode`` directory is NOT a
     match. The trade-off: running OpenCode from an *uninstalled* source checkout
     (e.g. ``bun /opt/opencode/src/index.ts``) is not auto-detected; such dev runs
-    set TOKEN_OPTIMIZER_RUNTIME=opencode explicitly. Installed users (npm package
+    set OBELISK_RUNTIME=opencode explicitly. Installed users (npm package
     or the ``opencode`` binary) are always detected.
     """
     p = path_token.strip().strip('"').strip("'")
@@ -484,7 +484,7 @@ def _opencode_in_process_tree() -> bool:
     OpenCode launched through ``node``/``bun`` is recognized, not only a bare
     ``opencode`` binary (issue #57). Same safety envelope as
     ``_ancestor_in_process_tree``: disabled on Windows, behind a short timeout,
-    skippable via TOKEN_OPTIMIZER_NO_PROC_SCAN, and never raises.
+    skippable via OBELISK_NO_PROC_SCAN, and never raises.
     """
     if os.environ.get(_PROC_SCAN_DISABLE_ENV, "").strip():
         return False
@@ -572,16 +572,16 @@ def _opencode_config_signal() -> bool:
     try:
         d = opencode_config_home()
         if not d.is_dir():
-            if os.environ.get("TOKEN_OPTIMIZER_DEBUG"):
+            if os.environ.get("OBELISK_DEBUG"):
                 print(f"[_opencode_config_signal] config dir not present: {d}", file=sys.stderr)
             return False
         if not any(d.iterdir()):
-            if os.environ.get("TOKEN_OPTIMIZER_DEBUG"):
+            if os.environ.get("OBELISK_DEBUG"):
                 print(f"[_opencode_config_signal] config dir empty: {d}", file=sys.stderr)
             return False
         return True
     except OSError as exc:
-        if os.environ.get("TOKEN_OPTIMIZER_DEBUG"):
+        if os.environ.get("OBELISK_DEBUG"):
             print(f"[_opencode_config_signal] OSError inspecting config dir: {exc}", file=sys.stderr)
         return False
 
@@ -594,7 +594,7 @@ def _opencode_signal() -> bool:
 def _copilot_signal() -> bool:
     """True when COPILOT_HOME is set or a ``copilot`` ancestor process is found.
 
-    The Copilot hook bridge always sets TOKEN_OPTIMIZER_RUNTIME=copilot
+    The Copilot hook bridge always sets OBELISK_RUNTIME=copilot
     explicitly; this signal is the safety net for direct invocations from
     inside a Copilot CLI session (issue #57 class of bugs: never let an
     unrecognized host fall through to the Claude default and write ~/.claude).
@@ -609,7 +609,7 @@ def detect_runtime() -> str:
     """Return the active runtime name.
 
     Priority:
-      1. Explicit override via TOKEN_OPTIMIZER_RUNTIME
+      1. Explicit override via OBELISK_RUNTIME
       2. A definitive OpenCode signal — an opencode ancestor process — implies
          OpenCode, evaluated BEFORE the soft Claude plugin-env heuristic so a
          coexisting Claude Code install on the same host can't shadow it (#57)
@@ -691,7 +691,7 @@ def claude_home() -> Path:
     except OSError:
         pass
     print(
-        f"[Token Optimizer] Warning: {_CLAUDE_CONFIG_DIR_ENV}={raw!r} rejected "
+        f"[Obelisk] Warning: {_CLAUDE_CONFIG_DIR_ENV}={raw!r} rejected "
         "(not an absolute, existing, non-symlink directory). Using default.",
         file=sys.stderr,
     )
@@ -714,7 +714,7 @@ def copilot_home(*, mnt_root: Path | None = None) -> Path:
     Resolution precedence (issue #78 — COPILOT_HOME is Copilot's OWN variable,
     so TO must not depend on the user setting it):
 
-      1. TOKEN_OPTIMIZER_COPILOT_HOME — Token Optimizer's own override. Honored
+      1. OBELISK_COPILOT_HOME — obelisk's own override. Honored
          under the strict under-``$HOME`` guard, or the WSL-root ``/mnt/``
          opt-in. This is the ONLY override users should set to disambiguate a
          multi-profile Windows host; it never collides with Copilot's config.
@@ -727,8 +727,8 @@ def copilot_home(*, mnt_root: Path | None = None) -> Path:
          the sole match, so no env var is needed at all.
       4. ``$HOME/.copilot`` — the default.
 
-    This is where Token Optimizer's own Copilot data lives
-    (``<home>/token-optimizer/``) — never ~/.claude. ``mnt_root`` is a
+    This is where obelisk's own Copilot data lives
+    (``<home>/obelisk-tracker/``) — never ~/.claude. ``mnt_root`` is a
     test-injection parameter (never set in production) so tests can substitute a
     temp dir for ``/mnt`` on non-Linux hosts.
     """
@@ -781,7 +781,7 @@ def opencode_data_home() -> Path:
 
     Honors OPENCODE_DATA_DIR when it points at a safe directory under home,
     else XDG_DATA_HOME/opencode, else ~/.local/share/opencode. This is where
-    Token Optimizer's own data would live under OpenCode — never ~/.claude.
+    obelisk's own data would live under OpenCode — never ~/.claude.
     """
     default = _xdg_base("XDG_DATA_HOME", ".local/share") / "opencode"
     return _safe_home_from_env("OPENCODE_DATA_DIR", default)
@@ -809,8 +809,8 @@ def runtime_home() -> Path:
 def plugin_data_env_vars() -> tuple[str, ...]:
     """Return plugin-data env vars in runtime-specific priority order."""
     if detect_runtime() in (_RUNTIME_CODEX, _RUNTIME_HERMES, _RUNTIME_OPENCODE, _RUNTIME_COPILOT):
-        return ("TOKEN_OPTIMIZER_PLUGIN_DATA",)
-    return ("CLAUDE_PLUGIN_DATA", "TOKEN_OPTIMIZER_PLUGIN_DATA")
+        return ("OBELISK_PLUGIN_DATA",)
+    return ("CLAUDE_PLUGIN_DATA", "OBELISK_PLUGIN_DATA")
 
 
 def runtime_name_for_humans() -> str:

@@ -5,7 +5,7 @@
 
 # Setup Guide
 
-**From clone to working agent hooks in one guide.** Covers building from source, PATH persistence, agent hook installation, smoke tests, and Token Optimizer setup.
+**From clone to working agent hooks in one guide.** Covers building from source, PATH persistence, agent hook installation, smoke tests, and usage tracking.
 
 ---
 
@@ -17,7 +17,6 @@
 - [Install Agent Hooks](#install-agent-hooks)
 - [Smoke Tests](#smoke-tests)
 - [Recommended Daily Workflow](#recommended-daily-workflow)
-- [Token Optimizer Setup (Hermes Plugin)](#token-optimizer-setup-hermes-plugin)
 - [Self-Improvement Setup](#self-improvement-setup)
 - [Updating Obelisk](#updating-obelisk)
 - [Quick Recovery](#quick-recovery)
@@ -193,33 +192,6 @@ Use agents normally, but nudge them toward Obelisk patterns:
 | One function/class | `obelisk symbol <file> <name>` | Minimal token cost |
 | Project context | `obelisk pack --budget <n>` | Provider-neutral context bundle |
 | Restore only when needed | `obelisk restore <handle>` | Avoids undoing compression |
-
----
-
-## Token Optimizer Setup (Hermes Plugin)
-
-The Hermes plugin's Token Optimizer features (context nudge, per-turn tally, session rollup, dashboard) are optional and require an external repo.
-
-### 1. Clone the Token Optimizer repo
-
-```bash
-git clone https://github.com/alexgreensh/token-optimizer.git ~/Documents/token-optimizer
-```
-
-### 2. Verify the bridge works
-
-```bash
-cd ~/.hermes/plugins/obelisk
-python3 hermes_hook_bridge.py
-```
-
-Expected output:
-
-```
-[OK] measure.py found at /home/me/Documents/token-optimizer/scripts/measure.py
-```
-
-If the bridge reports `[WARN] measure.py not found`, the dashboard, nudge, and rollup features are paused. Either clone the repo or check the `measure-path` locator file.
 
 ---
 

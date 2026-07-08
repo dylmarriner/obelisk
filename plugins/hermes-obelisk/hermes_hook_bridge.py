@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermes hook bridge for Token Optimizer.
+"""Hermes hook bridge for Obelisk usage tracking.
 
 Thin shim that locates measure.py and shells into its subcommands (rollup,
 summary, dashboard) on behalf of the Hermes plugin hooks and slash command.
@@ -10,10 +10,10 @@ Design mirrors codex_hook_bridge.py:
 - Never imports Hermes modules.
 
 Assumption: this file lives in the same directory as measure.py (the scripts/
-directory inside the Token Optimizer repo, or the same directory as __init__.py
+directory inside the Obelisk tracker repo, or the same directory as __init__.py
 in the Hermes install tree).  That directory is:
-  ~/.hermes/plugins/token-optimizer/   (installed)
-  skills/token-optimizer/scripts/      (repo checkout)
+  ~/.hermes/plugins/obelisk-tracker/   (installed)
+  skills/obelisk-tracker/scripts/      (repo checkout)
 
 Either way, Path(__file__).parent / "measure.py" resolves correctly.
 """
@@ -52,8 +52,8 @@ _MEASURE_LOCATOR = _SCRIPTS_DIR / "measure-path"
 # Fallback search paths if the primary location is missing (e.g. the bridge
 # is bundled into the install tree but measure.py is in the repo checkout).
 _FALLBACK_PATHS: list[Path] = [
-    runtime_home() / "skills" / "token-optimizer" / "scripts" / "measure.py",
-    Path.home() / ".hermes" / "plugins" / "token-optimizer" / "measure.py",
+    runtime_home() / "skills" / "obelisk-tracker" / "scripts" / "measure.py",
+    Path.home() / ".hermes" / "plugins" / "obelisk-tracker" / "measure.py",
 ]
 
 
@@ -128,7 +128,7 @@ def _run_measure(args: list[str], *, capture_output: bool = True, timeout: int =
             encoding="utf-8",
             errors="replace",
             timeout=timeout,
-            env={**os.environ, "TOKEN_OPTIMIZER_RUNTIME": "hermes",
+            env={**os.environ, "OBELISK_RUNTIME": "hermes",
                  "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
         )
         if result.returncode != 0 and result.stderr:
@@ -170,7 +170,7 @@ def run_rollup(session_id: str = "", platform: str = "hermes", reason: str = "")
         if not _rollup_missing_warned:
             _rollup_missing_warned = True
             print(
-                "[Token Optimizer] measure.py not found - rollups paused. "
+                "[Obelisk] measure.py not found - rollups paused. "
                 "Run hermes-doctor to diagnose.",
                 file=sys.stderr,
             )
@@ -184,7 +184,7 @@ def run_rollup(session_id: str = "", platform: str = "hermes", reason: str = "")
     try:
         subprocess.Popen(
             cmd,
-            env={**os.environ, "TOKEN_OPTIMIZER_RUNTIME": "hermes",
+            env={**os.environ, "OBELISK_RUNTIME": "hermes",
                  "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -208,7 +208,7 @@ def run_summary(session_id: str = "") -> str:
 
 
 def run_dashboard(session_id: str = "", port: int = DASHBOARD_PORT) -> None:
-    """Open / serve the Token Optimizer dashboard on the given port.
+    """Open / serve the usage dashboard on the given port.
 
     Shells to: python3 measure.py dashboard [--port <port>]
 
@@ -217,7 +217,7 @@ def run_dashboard(session_id: str = "", port: int = DASHBOARD_PORT) -> None:
     """
     measure_py = _locate_measure_py()
     if measure_py is None:
-        print("[Token Optimizer] measure.py not found; cannot open dashboard.")
+        print("[Obelisk] measure.py not found; cannot open dashboard.")
         return
     args = [sys.executable, str(measure_py), "dashboard", "--port", str(port)]
     if session_id:
@@ -225,7 +225,7 @@ def run_dashboard(session_id: str = "", port: int = DASHBOARD_PORT) -> None:
     try:
         subprocess.Popen(
             args,
-            env={**os.environ, "TOKEN_OPTIMIZER_RUNTIME": "hermes",
+            env={**os.environ, "OBELISK_RUNTIME": "hermes",
                  "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8"},
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
@@ -233,7 +233,7 @@ def run_dashboard(session_id: str = "", port: int = DASHBOARD_PORT) -> None:
         )
     except Exception as exc:
         logger.debug("[hermes_hook_bridge] dashboard launch error: %s", exc)
-        print(f"[Token Optimizer] Could not open dashboard: {exc}")
+        print(f"[Obelisk] Could not open dashboard: {exc}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
-"""Process-wide UTF-8 I/O enforcement for Token Optimizer.
+"""Process-wide UTF-8 I/O enforcement for Obelisk.
 
-Token Optimizer runs as short-lived hook / statusline subprocesses spawned by the
+Obelisk tracking runs as short-lived hook / statusline subprocesses spawned by the
 host CLI. On hosts where the active encoding is not UTF-8 -- Windows ANSI codepages
 (cp125x), an explicit non-UTF-8 LANG/LC_ALL, or PYTHONUTF8=0 -- Python's standard
 streams (and the default open() encoding) fall back to that locale charset. Session
@@ -29,7 +29,7 @@ _DONE = False
 
 # Sentinel so a re-exec can never loop, even if the child still reports a
 # non-UTF-8 preferred encoding for some pathological reason.
-_REEXEC_FLAG = "TOKEN_OPTIMIZER_UTF8_REEXEC"
+_REEXEC_FLAG = "OBELISK_UTF8_REEXEC"
 
 
 def reexec_in_utf8_mode() -> None:

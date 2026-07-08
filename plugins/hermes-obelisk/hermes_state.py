@@ -139,7 +139,7 @@ def hermes_home() -> Path:
         if _is_safe_home_dir(candidate):
             return candidate.resolve(strict=False)
         logger.warning(
-            "[Token Optimizer] HERMES_HOME=%r rejected (not a safe directory). Using default.",
+            "[Obelisk] HERMES_HOME=%r rejected (not a safe directory). Using default.",
             raw,
         )
     return Path.home() / _DEFAULT_HERMES_DIR

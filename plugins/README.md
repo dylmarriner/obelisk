@@ -14,7 +14,7 @@
 | Package | Target | Status | Purpose |
 |---------|--------|--------|---------|
 | [claude-code-obelisk](./claude-code-obelisk/README.md) | Claude Code | Local plugin package | Hooks, skills, and context optimizer agent |
-| [hermes-obelisk](./hermes-obelisk/README.md) | Hermes Agent | Native plugin package | Tools, hooks, slash commands, CLI commands, skills, and Token Optimizer integration |
+| [hermes-obelisk](./hermes-obelisk/README.md) | Hermes Agent | Native plugin package | Tools, hooks, slash commands, CLI commands, skills, and usage tracking |
 | [paperclip-obelisk](./paperclip-obelisk/README.md) | Paperclip | Prototype | Task-start and heartbeat context packing, output compression, restore handles, savings UI |
 
 ---

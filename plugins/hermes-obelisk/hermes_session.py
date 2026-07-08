@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermes session normalizer for Token Optimizer.
+"""Hermes session normalizer for Obelisk usage tracking.
 
 Converts a Hermes ``sessions`` row (as returned by ``hermes_state.py``) into
 the same canonical dict shape that ``measure.py`` / the dashboard consume for

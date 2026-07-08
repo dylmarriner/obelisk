@@ -1,3 +1,14 @@
 name: obelisk
-version: "0.1.0"
-description: Obelisk context firewall integration for Hermes Agent. Adds tools, commands, hooks, and skills for compact command output, context packing, symbol lookup, and restore handles.
+version: "0.2.0"
+description: >-
+  Obelisk context firewall + Token Optimizer integration for Hermes Agent.
+  Compact command output (run/pack/outline/symbol/restore/rewrite),
+  per-turn token tracking, context-fill nudges, session rollup,
+  and the shared Token Optimizer dashboard.
+author: Hermes / AlexGreenshpun
+hooks:
+  - pre_tool_call
+  - pre_llm_call
+  - post_api_request
+  - on_session_finalize
+  - on_session_end

@@ -4,7 +4,7 @@ All rewrite logic lives in Obelisk's Rust ``obelisk rewrite`` command; this
 module only bridges Hermes ``pre_tool_call`` payloads to that command and
 fails open (any error means the original command runs untouched).
 
-Mirrors the rtk-rewrite plugin's contract: exit 0 + a changed line on stdout
+Mirrors the contract of the previous rewrite plugin: exit 0 + a changed line on stdout
 means "use this instead"; anything else means "leave it alone."
 """
 

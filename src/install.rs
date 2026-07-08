@@ -86,7 +86,7 @@ fn claude() -> Result<i32> {
 
 fn hermes() -> Result<i32> {
     // Awareness file as a fallback/explainer, plus a real `pre_tool_call`
-    // plugin (mirrors rtk's rtk-rewrite plugin) that calls `obelisk rewrite`
+    // plugin that calls `obelisk rewrite`
     // and swaps the command in before execution — no agent cooperation needed.
     let rules = home().join(".hermes").join("OBELISK.md");
     backup_and_write(&rules, &awareness())?;

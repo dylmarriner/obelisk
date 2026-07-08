@@ -16,7 +16,7 @@ which obelisk
 obelisk doctor
 obelisk rewrite git status
 obelisk stats
-grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
+grep -Rni "obelisk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
 ```
 
 ---
@@ -25,7 +25,6 @@ grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .cliner
 
 - [obelisk: command not found](#obelisk-command-not-found)
 - [obelisk doctor fails ledger check](#obelisk-doctor-fails-ledger-check)
-- [Agent still calls RTK](#agent-still-calls-rtk)
 - [Agent does not rewrite commands](#agent-does-not-rewrite-commands)
 - [Compressed output is larger than original](#compressed-output-is-larger-than-original)
 - [Restore handle not found](#restore-handle-not-found)
@@ -107,39 +106,6 @@ obelisk doctor
 ```
 
 ---
-
-## Agent still calls RTK
-
-### Find stale references
-
-```bash
-grep -Rni "rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
-```
-
-### Remove plugin files
-
-```bash
-rm -rf ~/.hermes/plugins/rtk-rewrite
-rm -f ~/.config/opencode/plugins/rtk.ts
-```
-
-### Remove binary
-
-```bash
-cargo uninstall rtk 2>/dev/null || true
-cargo uninstall rtk-cli 2>/dev/null || true
-rm -f ~/.cargo/bin/rtk ~/.local/bin/rtk
-sudo rm -f /usr/local/bin/rtk 2>/dev/null || true
-```
-
-### Reinstall Obelisk hooks
-
-```bash
-obelisk install claude
-obelisk install codex
-obelisk install opencode
-obelisk install hermes
-```
 
 ---
 

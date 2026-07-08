@@ -31,20 +31,18 @@ flowchart LR
     A[Clone repo] --> B[Build with cargo]
     B --> C[Install binary]
     C --> D[Run obelisk doctor]
-    D --> E[Remove RTK if present]
-    E --> F[Install agent hooks]
-    F --> G[Run smoke tests]
-    G --> H[Optional: Token Optimizer setup]
-    H --> I[Daily use]
+    D --> E[Install agent hooks]
+    E --> F[Run smoke tests]
+    F --> G[Optional: Token Optimizer setup]
+    G --> H[Daily use]
 ```
 
 1. **Build and install** Obelisk from source — [Setup Guide](SETUP.md#clone-and-build)
 2. **Verify** with `obelisk doctor` — [Setup Guide](SETUP.md#install-the-binary)
-3. **Remove RTK** if you used it before — [Setup Guide](SETUP.md#remove-rtk-first-if-you-used-it)
-4. **Install agent hooks** for the agents you use — [Agent Integrations](AGENT_INTEGRATIONS.md)
-5. **Run smoke tests** — [Setup Guide](SETUP.md#smoke-tests)
-6. **Set up Token Optimizer** (Hermes plugin only) — [Setup Guide](SETUP.md#token-optimizer-setup-hermes-plugin)
-7. **Leave self-improvement disabled** until you understand it — [Self-Improvement](SELF_IMPROVEMENT.md)
+3. **Install agent hooks** for the agents you use — [Agent Integrations](AGENT_INTEGRATIONS.md)
+4. **Run smoke tests** — [Setup Guide](SETUP.md#smoke-tests)
+5. **Set up Token Optimizer** (Hermes plugin only) — [Setup Guide](SETUP.md#token-optimizer-setup-hermes-plugin)
+6. **Leave self-improvement disabled** until you understand it — [Self-Improvement](SELF_IMPROVEMENT.md)
 
 ---
 
@@ -54,11 +52,11 @@ flowchart LR
 
 | Document | Contents |
 |----------|----------|
-| [Setup Guide](SETUP.md) | Requirements, building, installation, PATH setup, RTK migration, agent hooks installation, smoke tests, Token Optimizer setup, daily workflow, updating |
+| [Setup Guide](SETUP.md) | Requirements, building, installation, PATH setup, agent hooks installation, smoke tests, Token Optimizer setup, daily workflow, updating |
 | [Command Reference](COMMANDS.md) | All CLI commands: `run`, `squeeze`, `terse`, `outline`, `symbol`, `pack`, `marker`, `checkpoint`, `restore`, `serve`, `stats`, `gc`, `install`, `hook`, `rewrite`, `doctor`, `learn` |
 | [Agent Integrations](AGENT_INTEGRATIONS.md) | Claude Code, Codex, OpenCode, Hermes (with Token Optimizer), Paperclip, OpenClaw, Cline — install, verify, troubleshoot |
 | [Self-Improvement](SELF_IMPROVEMENT.md) | Learning loop architecture, gaps, risks, recommended safeguards, v2 design |
-| [Troubleshooting](TROUBLESHOOTING.md) | Binary not found, ledger failures, RTK conflicts, hook issues, pack too small/large, build failures, self-improvement, Token Optimizer bridge issues |
+| [Troubleshooting](TROUBLESHOOTING.md) | Binary not found, ledger failures, hook issues, pack too small/large, build failures, self-improvement, Token Optimizer bridge issues |
 
 ### Plugin Documentation
 

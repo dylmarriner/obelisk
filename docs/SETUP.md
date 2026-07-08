@@ -5,7 +5,7 @@
 
 # Setup Guide
 
-**From clone to working agent hooks in one guide.** Covers building from source, PATH persistence, RTK migration, agent hook installation, smoke tests, and Token Optimizer setup.
+**From clone to working agent hooks in one guide.** Covers building from source, PATH persistence, agent hook installation, smoke tests, and Token Optimizer setup.
 
 ---
 
@@ -14,7 +14,6 @@
 - [Prerequisites](#prerequisites)
 - [Clone and Build](#clone-and-build)
 - [Install the Binary](#install-the-binary)
-- [Remove RTK (if migrating)](#remove-rtk-if-migrating)
 - [Install Agent Hooks](#install-agent-hooks)
 - [Smoke Tests](#smoke-tests)
 - [Recommended Daily Workflow](#recommended-daily-workflow)
@@ -106,60 +105,6 @@ obelisk doctor
 ```
 
 Expected output: `obelisk doctor` shows the binary path, ledger status, store counts, and supported agent install targets.
-
----
-
-## Remove RTK (If Migrating)
-
-> **Important:** Remove RTK *before* installing Obelisk hooks. If your agent config still calls `rtk` after you delete the binary, your hooks will fail.
-
-### 1. Find RTK
-
-```bash
-which rtk || true
-rtk --version 2>/dev/null || true
-```
-
-### 2. Find RTK references in agent configs
-
-```bash
-grep -Rni "rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
-```
-
-### 3. Back up configs
-
-```bash
-mkdir -p ~/obelisk-agent-config-backups
-cp -a ~/.claude ~/obelisk-agent-config-backups/claude 2>/dev/null || true
-cp -a ~/.config/opencode ~/obelisk-agent-config-backups/opencode 2>/dev/null || true
-cp -a ~/.codex ~/obelisk-agent-config-backups/codex 2>/dev/null || true
-cp -a ~/.hermes ~/obelisk-agent-config-backups/hermes 2>/dev/null || true
-cp -a .clinerules ~/obelisk-agent-config-backups/clinerules 2>/dev/null || true
-```
-
-### 4. Remove RTK files
-
-```bash
-rm -rf ~/.hermes/plugins/rtk-rewrite
-rm -f ~/.config/opencode/plugins/rtk.ts
-```
-
-### 5. Remove the RTK binary
-
-```bash
-cargo uninstall rtk 2>/dev/null || true
-cargo uninstall rtk-cli 2>/dev/null || true
-rm -f ~/.cargo/bin/rtk ~/.local/bin/rtk
-sudo rm -f /usr/local/bin/rtk 2>/dev/null || true
-rm -rf ~/.config/rtk ~/.local/share/rtk
-```
-
-### 6. Confirm RTK is gone
-
-```bash
-grep -Rni "rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
-which rtk || true
-```
 
 ---
 
@@ -326,8 +271,6 @@ which obelisk
 obelisk doctor
 grep -Rni "obelisk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
 ```
-
-If needed, restore your config backups from `~/obelisk-agent-config-backups`.
 
 ---
 

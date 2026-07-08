@@ -112,7 +112,7 @@ export PATH="$HOME/.local/bin:$PATH"
 obelisk doctor
 ```
 
-> **Full setup guide:** [docs/SETUP.md](docs/SETUP.md) — includes PATH persistence, RTK migration, agent hooks, smoke tests, and Token Optimizer setup.
+> **Full setup guide:** [docs/SETUP.md](docs/SETUP.md) — includes PATH persistence, agent hooks, smoke tests, and Token Optimizer setup.
 
 ---
 
@@ -318,7 +318,7 @@ which obelisk
 obelisk doctor
 obelisk rewrite git status
 obelisk stats
-grep -Rni "obelisk\|rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
+grep -Rni "obelisk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
 ```
 
 **Full troubleshooting guide:** [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)

@@ -22,7 +22,6 @@
 - [Paperclip](#paperclip)
 - [Prompt Guidance for Agents](#prompt-guidance-for-agents)
 - [Troubleshooting Hooks](#troubleshooting-hooks)
-- [Removing RTK](#removing-rtk)
 
 ---
 
@@ -328,31 +327,6 @@ If commands are not being rewritten:
    obelisk doctor
    ```
 6. Restore backed-up config if needed (from `~/obelisk-agent-config-backups`).
-
----
-
-## Removing RTK
-
-If you previously used RTK, remove it before relying on Obelisk:
-
-```bash
-# Find all RTK references
-grep -Rni "rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
-
-# Remove plugin files
-rm -rf ~/.hermes/plugins/rtk-rewrite
-rm -f ~/.config/opencode/plugins/rtk.ts
-
-# Remove binary
-cargo uninstall rtk 2>/dev/null || true
-cargo uninstall rtk-cli 2>/dev/null || true
-rm -f ~/.cargo/bin/rtk ~/.local/bin/rtk
-sudo rm -f /usr/local/bin/rtk 2>/dev/null || true
-
-# Confirm removal
-grep -Rni "rtk" ~/.claude ~/.config/opencode ~/.codex ~/.hermes .clinerules 2>/dev/null || true
-which rtk || true
-```
 
 ---
 
